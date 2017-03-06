@@ -242,14 +242,17 @@ protected:
     void AddBranch(const std::string& branch_name, DataType& value)
     {
         std::lock_guard<std::mutex> lock(mutex);
-        if(!disabled_branches.count(branch_name)) {
-            if(enabled_branches.count(branch_name)){
-                detail::BranchCreator<DataType> creator;
-                creator.Create(*tree, branch_name, value, readMode, entries);
-            }
+        if (!disabled_branches.count(branch_name) && (!enabled_branches.size() || enabled_branches.count(branch_name))){
+            detail::BranchCreator<DataType> creator;
+            creator.Create(*tree, branch_name, value, readMode, entries);
         }
-
     }
+
+    bool HasBranch(const std::string& branch_name)
+    {
+        return entries.count(branch_name) != 0;
+    }
+
 
 private:
     SmartTree(const SmartTree& other) { throw std::runtime_error("Can't copy a smart tree"); }
