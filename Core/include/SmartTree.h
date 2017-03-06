@@ -248,7 +248,7 @@ protected:
         }
     }
 
-    bool HasBranch(const std::string& branch_name)
+    bool HasBranch(const std::string& branch_name) const
     {
         return entries.count(branch_name) != 0;
     }
