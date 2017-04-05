@@ -110,90 +110,98 @@ double Calculate_visiblePzeta(const LVector1& l1_p4, const LVector2& l2_p4)
 }
 
 template<typename LVector1, typename LVector2, typename LVector3, typename LVector4, typename LVector5 >
-std::pair<double, double> Calculate_mass_top(const LVector1& lepton1_p4, const LVector2& lepton2_p4, const LVector3& bjet_1, const LVector4& bjet_2, const LVector5& met_p4){
-    const double mass_top = 173.21;
-    const auto a1 = lepton1_p4 + bjet_1 + met_p4;
-    const auto b1 = lepton2_p4 + bjet_2;
-    auto a2 = lepton1_p4 + bjet_1;
-    auto b2 = lepton2_p4 + bjet_2 + met_p4;
-    auto a3 = lepton1_p4 + bjet_2 + met_p4;
-    auto b3 = lepton2_p4 + bjet_1;
-    auto a4 = lepton1_p4 + bjet_2;
-    auto b4 = lepton2_p4 + bjet_1 + met_p4;
-
-    double d1 = pow(std::abs(a1.mass() - mass_top),2) + pow (std::abs(b1.mass() - mass_top),2);
-    double d2 = pow(std::abs(a2.mass() - mass_top),2) + pow (std::abs(b2.mass() - mass_top),2);
-    double d3 = pow(std::abs(a3.mass() - mass_top),2) + pow (std::abs(b3.mass() - mass_top),2);
-    double d4 = pow(std::abs(a4.mass() - mass_top),2) + pow (std::abs(b4.mass() - mass_top),2);
-    std::pair<double, double> pair_mass_top;
-    if (d1<d2 && d1<d3 && d1<d4) {
-        pair_mass_top.first = a1.mass();
-        pair_mass_top.second = b1.mass();
+std::pair<double, double> Calculate_topPairMasses(const LVector1& lepton1_p4, const LVector2& lepton2_p4, const LVector3& bjet_1, const LVector4& bjet_2, const LVector5& met_p4){
+    const double mass_top = 172.5;
+    std::vector<std::pair<LorentzVectorM_Float, LorentzVectorM_Float>> vector_mass_top;
+    vector_mass_top.emplace_back(lepton1_p4 + bjet_1 + met_p4, lepton2_p4 + bjet_2);
+    vector_mass_top.emplace_back(lepton1_p4 + bjet_1, lepton2_p4 + bjet_2 + met_p4);
+    vector_mass_top.emplace_back(lepton1_p4 + bjet_2 + met_p4, lepton2_p4 + bjet_1);
+    vector_mass_top.emplace_back(lepton1_p4 + bjet_2, lepton2_p4 + bjet_1 + met_p4);
+    std::vector<std::pair<int, double>> distance;
+    for (Long64_t i = 0; i<vector_mass_top.size(); i++){
+        distance.emplace_back(i, pow(vector_mass_top[i].first.mass() - mass_top,2) + pow (vector_mass_top[i].second.mass() - mass_top,2));
     }
-    if (d2<d1 && d2<d3 && d2<d4) {
-        pair_mass_top.first = a2.mass();
-        pair_mass_top.second = b2.mass();
-    }
-    if (d3<d1 && d3<d2 && d3<d4) {
-        pair_mass_top.first = a3.mass();
-        pair_mass_top.second = b3.mass();
-    }
-    if (d4<d1 && d4<d3 && d4<d2) {
-        pair_mass_top.first = a4.mass();
-        pair_mass_top.second = b4.mass();
-    }
+    std::sort(distance.begin(), distance.end(), [](const std::pair<int, double>& el1,const std::pair<int, double>& el2){
+        return el1.second < el2.second;
+    });
+    int index = distance.front().first;
+    std::pair<double, double> pair_mass_top (vector_mass_top[index].first.mass(), vector_mass_top[index].second.mass());
     return pair_mass_top;
 }
 
 template<typename LVector1, typename LVector2, typename LVector3 >
 double Calculate_dR_boosted(const LVector1& particle_1, const LVector2& particle_2, const LVector3& h){
-    const analysis::LorentzVectorXYZ h_vector(h.px(),h.py(),h.pz(),h.e());
-    const auto boosted_1 = ROOT::Math::VectorUtil::boost(particle_1, h_vector.BoostToCM());
-    const auto boosted_2 = ROOT::Math::VectorUtil::boost(particle_2, h_vector.BoostToCM());
+    const auto boosted_1 = ROOT::Math::VectorUtil::boost(particle_1, h.BoostToCM());
+    const auto boosted_2 = ROOT::Math::VectorUtil::boost(particle_2, h.BoostToCM());
     return ROOT::Math::VectorUtil::DeltaR(boosted_1, boosted_2); // R between the two final state particle in the h rest frame
 }
 
 
 template<typename LVector1, typename LVector2, typename LVector3, typename LVector4, typename LVector5,  typename LVector6>
-double Calculate_phi_4bodies(const LVector1& lepton1, const LVector2& lepton2, const LVector3& bjet1, const LVector4& bjet2, const LVector5& svfit, const LVector6& bb){
-    const auto H = bb + svfit;
-    const analysis::LorentzVectorXYZ vec_H(H.px(), H.py(),H.pz(),H.e());
-    const auto boosted_l1 = ROOT::Math::VectorUtil::boost(lepton1, vec_H.BoostToCM());
-    const auto boosted_l2 = ROOT::Math::VectorUtil::boost(lepton2, vec_H.BoostToCM());
-    const auto boosted_j1 = ROOT::Math::VectorUtil::boost(bjet1, vec_H.BoostToCM());
-    const auto boosted_j2 = ROOT::Math::VectorUtil::boost(bjet2, vec_H.BoostToCM());
-    const TVector3 vec_l1(boosted_l1.px(),boosted_l1.py(),boosted_l1.pz());
-    const TVector3 vec_l2(boosted_l2.px(),boosted_l2.py(),boosted_l2.pz());
-    const TVector3 vec_j1(boosted_j1.px(),boosted_j1.py(),boosted_j1.pz());
-    const TVector3 vec_j2(boosted_j2.px(),boosted_j2.py(),boosted_j2.pz());
-    const auto n1 = vec_l1.Cross(vec_l2);
-    const auto n2 = vec_j1.Cross(vec_j2);
+double Calculate_phi_4bodies(const LVector1& lepton1, const LVector2& lepton2, const LVector3& bjet1, const LVector4& bjet2, const LVector5& ll, const LVector6& bb){
+    const auto H = bb + ll;
+    const auto boosted_l1 = ROOT::Math::VectorUtil::boost(lepton1, H.BoostToCM());
+    const auto boosted_l2 = ROOT::Math::VectorUtil::boost(lepton2, H.BoostToCM());
+    const auto boosted_j1 = ROOT::Math::VectorUtil::boost(bjet1, H.BoostToCM());
+    const auto boosted_j2 = ROOT::Math::VectorUtil::boost(bjet2, H.BoostToCM());
+    const auto n1 = boosted_l1.Vect().Cross(boosted_l2.Vect());
+    const auto n2 = boosted_j1.Vect().Cross(boosted_j2.Vect());
     return ROOT::Math::VectorUtil::Angle(n1, n2); //angle between the decay planes of the four final state elements expressed in the H rest frame
 }
 
 template<typename LVector1, typename LVector2>
-double Calculate_theta_star(const LVector1& svfit, const LVector2& bb){
-    const auto H = bb + svfit;
-    const analysis::LorentzVectorXYZ vec_H(H.px(),H.py(),H.pz(),H.e());
-    const auto boosted_h = ROOT::Math::VectorUtil::boost(svfit, vec_H.BoostToCM());
-    return std::acos(ROOT::Math::VectorUtil::CosTheta(boosted_h, ROOT::Math::Cartesian3D<>(0, 0, 1))); // Is the production angle of the h_tautau defined in the H rest frame
+double  Calculate_cosThetaStar(const LVector1& ll, const LVector2& bb){
+    const auto H = bb + ll;
+    const auto boosted_h = ROOT::Math::VectorUtil::boost(ll, H.BoostToCM());
+    return ROOT::Math::VectorUtil::CosTheta(boosted_h, ROOT::Math::Cartesian3D<>(0, 0, 1)); // Is the production angle of the h_tautau defined in the H rest frame
 }
 
 template<typename LVector1, typename LVector2, typename LVector3, typename LVector4>
-double Calculate_phi_star(const LVector1& object1, const LVector2& object2, const LVector3& svfit, const LVector4& bb){
-    const auto H = bb + svfit;
-    const analysis::LorentzVectorXYZ vec_H(H.px(),H.py(),H.pz(),H.e());
-    const auto boosted_1 = ROOT::Math::VectorUtil::boost(object1, vec_H.BoostToCM());
-    const auto boosted_2 = ROOT::Math::VectorUtil::boost(object2, vec_H.BoostToCM());
-    const auto boosted_h = ROOT::Math::VectorUtil::boost(svfit, vec_H.BoostToCM());
-    const TVector3 vec_h(boosted_h.px(),boosted_h.py(),boosted_h.pz());
-    const TVector3 vec_1(boosted_1.px(),boosted_1.py(),boosted_1.pz());
-    const TVector3 vec_2(boosted_2.px(),boosted_2.py(),boosted_2.pz());
+double Calculate_phi1(const LVector1& object1, const LVector2& object2, const LVector3& ll, const LVector4& bb){
+    const auto H = bb + ll;
+    const auto boosted_1 = ROOT::Math::VectorUtil::boost(object1, H.BoostToCM());
+    const auto boosted_2 = ROOT::Math::VectorUtil::boost(object2, H.BoostToCM());
+    const auto boosted_h = ROOT::Math::VectorUtil::boost(ll, H.BoostToCM());
     TVector3 z_axis(0,0,1);
-    const auto n1 = vec_1.Cross(vec_2);
-    const auto n3 = vec_h.Cross(z_axis);
+    const auto n1 = boosted_1.Vect().Cross(boosted_2.Vect());
+    const auto n3 = boosted_h.Vect().Cross(z_axis);
     return ROOT::Math::VectorUtil::Angle(n1,n3);
 }
+
+template<typename LVector1, typename LVector2>
+double Calculate_theta_2bodies(const LVector1& object1, const LVector2&  hh){
+    const auto boosted_object1 = ROOT::Math::VectorUtil::boost(object1, hh.BoostToCM());
+    return  ROOT::Math::VectorUtil::CosTheta(boosted_object1, hh); //theta angle between the first final state lepton and the direction of flight of h_tautau in the h_tautau rest frame
+}
+
+template<typename LVector1, typename LVector2>
+double Calculate_theta_4bodies(const LVector1& hh, const LVector2&  H){
+    const auto boosted_hh = ROOT::Math::VectorUtil::boost(hh, H.BoostToCM());
+    return  ROOT::Math::VectorUtil::CosTheta(boosted_hh, H);
+}
+
+template<typename LVector1, typename LVector2, typename LVector3, typename LVector4, typename LVector5>
+double Calculate_MX(const LVector1& lepton1, const LVector2& lepton2, const LVector3& bjet1, const LVector4& bjet2, const LVector5& met){
+
+    auto mass_4 = (lepton1 + lepton2 + met, bjet1 + bjet2).M();
+    auto mass_ll =  (lepton1 + lepton2).M();
+    auto mass_bb =  (bjet1 +  bjet2).M();
+    return mass_4 - mass_ll - mass_bb;
+}
+
+template<typename LVector1>
+double Calculate_sumPt_otherJet(const LVector1& jets){
+    if (jets.size()<=2) return 0;
+    else{
+        auto sum = 0;
+        for (Long64_t i=0; i< jets.size(); i++){
+            sum += jets[i].pt();
+        }
+        return sum;
+    }
+}
+
+
 
 
 
