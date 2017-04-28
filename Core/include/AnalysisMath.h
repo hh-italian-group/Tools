@@ -137,8 +137,10 @@ inline PhysicalValue Integral(const TH2D& histogram, bool include_overflows = tr
 }
 
 template<typename Histogram>
-inline void RenormalizeHistogram(Histogram& histogram, const double norm, bool include_overflows = true)
+inline void RenormalizeHistogram(Histogram& histogram, double norm, bool include_overflows = true)
 {
+    if (Integral(histogram,include_overflows).GetValue() == 0)
+        throw analysis::exception("Integral is zero.");
     histogram.Scale(norm / Integral(histogram,include_overflows).GetValue());
 }
 
