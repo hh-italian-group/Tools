@@ -223,7 +223,7 @@ inline double HermitePolynomial(unsigned n, double x)
 // Estimate optimal bandwith using the soleve-the-equation plug-in method using the algorithm defined in
 // CS-TR-4774/UMIACS-TR-2005-73 (http://www.umiacs.umd.edu/labs/cvl/pirl/vikas/publications/CS-TR-4774.pdf).
 template<typename Value>
-double OptimalBandwith(std::vector<Value> x, double relative_tolerance = 0.01)
+double OptimalBandwith(const std::vector<Value>& x, double relative_tolerance = 0.01)
 {
     static constexpr double sqrt_pi = boost::math::constants::root_pi<double>();
     static constexpr double sqrt_2pi = boost::math::constants::root_two_pi<double>();
@@ -481,7 +481,7 @@ double MutualInformation(const std::vector<Value>& x, const std::vector<Value>& 
 // Estimate 1 - I(X,Y) / max(H(X), H(Y)).
 // KDE is used for the PDF estimation.
 template<typename Value>
-double ScaledMutualInformation(const std::vector<Value>& x,  const std::vector<Value>& y,
+double ScaledMutualInformation(const std::vector<Value>& x, const std::vector<Value>& y,
                                double window_bandwidth_x, double window_bandwidth_y)
 {
     const double H_X = Entropy(x, window_bandwidth_x);
