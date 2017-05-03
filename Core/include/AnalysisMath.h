@@ -112,7 +112,7 @@ double Calculate_visiblePzeta(const LVector1& l1_p4, const LVector2& l2_p4)
 
 template<typename Iterator>
 double Calculate_HT(Iterator begin, const Iterator& end){
-    int sum = 0;
+    double sum = 0;
     for(; begin != end; ++begin)
         sum += begin->pt();
     return sum;
