@@ -112,7 +112,7 @@ double Calculate_visiblePzeta(const LVector1& l1_p4, const LVector2& l2_p4)
 
 template<typename Iterator>
 double Calculate_HT(Iterator begin, const Iterator& end){
-    auto sum = 0;
+    int sum = 0;
     for(; begin != end; ++begin)
         sum += begin->pt();
     return sum;
@@ -203,8 +203,8 @@ template<typename LVector1, typename LVector2, typename LVector3, typename LVect
 double Calculate_MX(const LVector1& lepton1, const LVector2& lepton2, const LVector3& bjet1, const LVector4& bjet2, const LVector5& met){
 
     static constexpr double shift = 250.;
-    auto mass_4 = (lepton1 + lepton2 + met, bjet1 + bjet2).M();
-    auto mass_ll =  (lepton1 + lepton2).M();
+    auto mass_4 = (lepton1 + lepton2 + met + bjet1 + bjet2).M();
+    auto mass_ll =  (lepton1 + lepton2 +  met).M();
     auto mass_bb =  (bjet1 +  bjet2).M();
     return mass_4 - mass_ll - mass_bb + shift;
 }
