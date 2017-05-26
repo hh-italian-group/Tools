@@ -10,18 +10,10 @@ namespace analysis {
 
 class exception : public std::exception {
 public:
-    explicit exception(const std::string& message) noexcept : f_msg(message), f_str(message) {}
+    explicit exception(const std::string& message) noexcept : f_msg(message) {}
     virtual ~exception() noexcept {}
-    virtual const char* what() const noexcept override { return message().c_str(); }
-
-    const std::string& message() const noexcept
-    {
-        if(!msg.size()) {
-            try { msg = boost::str(f_msg); }
-            catch(boost::exception&) { msg = "ill-formatted error message - '" + f_str + "'."; }
-        }
-        return msg;
-    }
+    virtual const char* what() const noexcept { return message().c_str(); }
+    const std::string& message() const noexcept { msg = boost::str(f_msg); return msg; }
 
     template<typename T>
     exception& operator % (const T& t)
@@ -33,7 +25,6 @@ public:
 private:
     mutable std::string msg;
     boost::format f_msg;
-    std::string f_str;
 };
 
-} // namespace analysis
+} // analysis
