@@ -46,7 +46,7 @@ namespace{
      if(first == second) return false;
      if(first == 0 || second == 0) return true;
      const auto delta = first - second;
-     return std::abs(delta/second) >= badThreshold;
+     return std::abs<T>(delta/second) >= badThreshold;
   }
   template<>
   bool isBadEvent<int>(int first, int second, double badThreshold) {

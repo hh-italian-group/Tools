@@ -23,18 +23,10 @@ get_filename_component(CMSSW_BASE_SRC "${AnalysisTools_DIR}" DIRECTORY)
 include_directories("${CMSSW_BASE_SRC}" "${AnalysisTools_DIR}/Core/include" "${PROJECT_SOURCE_DIR}")
 
 file(GLOB_RECURSE HEADER_LIST "*.h" "*.hh")
-add_custom_target(headers SOURCES ${HEADER_LIST})
-
 file(GLOB_RECURSE SOURCE_LIST "*.cxx" "*.C" "*.cpp" "*.cc")
-add_custom_target(sources SOURCES ${SOURCE_LIST})
-
 file(GLOB_RECURSE EXE_SOURCE_LIST "*.cxx")
-
 file(GLOB_RECURSE SCRIPT_LIST "*.sh" "*.py")
-add_custom_target(scripts SOURCES ${SCRIPT_LIST})
-
 file(GLOB_RECURSE CONFIG_LIST "*.cfg" "*.xml" "*.txt")
-add_custom_target(configs SOURCES ${CONFIG_LIST})
 
 set(CMAKE_CXX_COMPILER g++)
 set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -O3")
@@ -55,4 +47,3 @@ foreach(exe_source ${EXE_SOURCE_LIST})
     target_link_libraries("${exe_name}" ${ALL_LIBS})
     list(APPEND EXE_LIST "${exe_name}")
 endforeach()
-
