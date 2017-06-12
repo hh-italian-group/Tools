@@ -207,7 +207,7 @@ public:
     template<typename ValueType>
     SmartHistogram<ValueType>& Get(const std::string& name)
     {
-        return Get((ValueType*)nullptr, name, "");
+        return Get<ValueType>(nullptr, name, "");
     }
 
     template<typename ValueType>
