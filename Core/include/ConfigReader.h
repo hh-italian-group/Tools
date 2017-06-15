@@ -213,7 +213,7 @@ protected:
                         const std::string& separators = " \t")
     {
         const auto validity_check = [](const typename detail::ConfigParameterParser<T>::Value&) { return true; };
-        ParseEntryList<T>(name, result, allow_duplicates, separators, validity_check);
+        ParseEntryList<Container, T>(name, result, allow_duplicates, separators, validity_check);
     }
 
     template<typename Container, typename T = typename Container::value_type>
