@@ -37,7 +37,7 @@ file(GLOB_RECURSE CONFIG_LIST "*.cfg" "*.xml" "*.txt")
 add_custom_target(configs SOURCES ${CONFIG_LIST})
 
 set(CMAKE_CXX_COMPILER g++)
-set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -O3")
+set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -03")
 
 set(LinkDef "${AnalysisTools_DIR}/Core/include/LinkDef.h")
 set(RootDict "${CMAKE_BINARY_DIR}/RootDictionaries.cpp")
