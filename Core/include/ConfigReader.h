@@ -249,12 +249,17 @@ protected:
             { Condition::less, { "no more than", std::less<size_t>() } }
         };
 
-        const size_t count = read_params_counts.count(param_name) ? read_params_counts.at(param_name) : 0;
+        const size_t count = GetReadParamCounts(param_name);
         const std::string cmp_string = conditions.at(condition).first;
         const auto& cond_operator = conditions.at(condition).second;
         if(!cond_operator(count, expected))
             throw analysis::exception("The number of occurrences of the parameter '%1%' is %2%,"
                                       " while expected %3% %4%.") % param_name % count % cmp_string % expected;
+    }
+
+    size_t GetReadParamCounts(const std::string& param_name) const
+    {
+        return read_params_counts.count(param_name) ? read_params_counts.at(param_name) : 0;
     }
 
 private:
@@ -266,7 +271,7 @@ private:
 template<typename T, typename Collection = std::unordered_map<std::string, T>>
 class ConfigEntryReaderT : public ConfigEntryReader {
 public:
-    ConfigEntryReaderT(const Collection& _items) : items(&_items) {}
+    ConfigEntryReaderT(Collection& _items) : items(&_items) {}
 
     virtual void StartEntry(const std::string& name, const std::string& reference_name) override
     {
