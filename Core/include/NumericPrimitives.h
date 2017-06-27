@@ -490,6 +490,13 @@ struct Grid_ND {
             return *this;
         }
 
+        iterator operator++(int)
+        {
+            iterator cp(*this);
+            ++(*this);
+            return cp;
+        }
+
         const Position& operator*() const { return pos; }
         const Position& operator->() const { return pos; }
 
