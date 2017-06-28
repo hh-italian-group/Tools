@@ -498,7 +498,7 @@ struct Grid_ND {
         }
 
         const Position& operator*() const { return pos; }
-        const Position& operator->() const { return pos; }
+        const Position* operator->() const { return &pos; }
 
     private:
         Position pos;
