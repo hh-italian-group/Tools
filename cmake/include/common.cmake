@@ -31,15 +31,16 @@ file(GLOB_RECURSE CONFIG_LIST "*.cfg" "*.xml" "*.txt" "*.md")
 
 set(CMAKE_CXX_COMPILER g++)
 if(APPLE)
-    set(CXX_OS_SPECIFIC_FLAGS "-Weverything -Wno-missing-prototypes")
+    set(CXX_OS_SPECIFIC_FLAGS "-Weverything -Wno-missing-prototypes -Wno-unused-member-function -Wno-weak-vtables \
+                               -Wno-documentation -Wno-gnu-zero-variadic-macro-arguments -Wno-global-constructors \
+                               -Wno-exit-time-destructors -Wno-newline-eof -Wno-c++98-compat-pedantic \
+                               -Wno-c++98-compat")
 else()
     set(CXX_OS_SPECIFIC_FLAGS "-Wall")
 endif()
 
-set(CXX_WARNING_FLAGS "-Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-unused-macros -Wno-newline-eof \
-                       -Wno-exit-time-destructors -Wno-global-constructors -Wno-gnu-zero-variadic-macro-arguments \
-                       -Wno-documentation -Wno-shadow -Wno-unknown-pragmas -Wno-weak-vtables -Wno-format-nonliteral \
-                       -Wno-double-promotion -Wno-float-equal -Wno-padded -Wno-unused-member-function")
+set(CXX_WARNING_FLAGS "-Wno-unused-macros -Wno-shadow -Wno-unknown-pragmas -Wno-format-nonliteral \
+                       -Wno-double-promotion -Wno-float-equal -Wno-padded")
 
 set(CXX_COMMON_FLAGS "-std=c++14 -pedantic ${CXX_OS_SPECIFIC_FLAGS} ${CXX_WARNING_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} -O3")
