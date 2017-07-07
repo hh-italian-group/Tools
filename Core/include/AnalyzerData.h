@@ -8,6 +8,7 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #include <utility>
 
 #include "RootExt.h"
+#include "TextIO.h"
 #include "SmartHistogram.h"
 
 #define ANA_DATA_ENTRY(type, name, ...) \
@@ -64,20 +65,22 @@ public:
     using Entry = AnalyzerDataEntryBase;
     using EntryContainer = std::unordered_map<std::string, Entry*>;
 
-    AnalyzerData() : directory(nullptr) {}
+    AnalyzerData() : directory(nullptr), readMode(false) {}
 
     explicit AnalyzerData(const std::string& outputFileName) :
-        outputFile(CreateRootFile(outputFileName)), directory(outputFile.get()) {}
+        outputFile(CreateRootFile(outputFileName)), directory(outputFile.get()), readMode(false) {}
 
-    explicit AnalyzerData(std::shared_ptr<TFile> _outputFile, const std::string& directoryName = "") :
-        outputFile(_outputFile)
+    explicit AnalyzerData(std::shared_ptr<TFile> _outputFile, const std::string& directoryName = "",
+                          bool _readMode = false) :
+        outputFile(_outputFile), readMode(_readMode)
     {
         if(!outputFile)
             throw analysis::exception("Output file is nullptr.");
         directory = directoryName.size() ? GetDirectory(*outputFile, directoryName, true) : outputFile.get();
     }
 
-    explicit AnalyzerData(TDirectory* _directory, const std::string& subDirectoryName = "")
+    explicit AnalyzerData(TDirectory* _directory, const std::string& subDirectoryName = "", bool _readMode = false) :
+        readMode(_readMode)
     {
         if(!_directory)
             throw analysis::exception("Output directory is nullptr.");
@@ -86,7 +89,7 @@ public:
 
     virtual ~AnalyzerData()
     {
-        if(directory) {
+        if(directory && !readMode) {
             for(const auto& hist : histograms)
                 hist.second->WriteRootObject();
         }
@@ -117,6 +120,7 @@ public:
 private:
     std::shared_ptr<TFile> outputFile;
     TDirectory* directory;
+    bool readMode;
     EntryContainer entries;
     HistContainer histograms;
 };
@@ -133,6 +137,7 @@ struct AnalyzerDataEntry : AnalyzerDataEntryBase  {
     using Hist = SmartHistogram<ValueType>;
     using HistPtr = std::shared_ptr<Hist>;
     using HistPtrMap = std::unordered_map<std::string, HistPtr>;
+    using RootContainer = typename Hist::RootContainer;
 
     AnalyzerDataEntry(const std::string& _name, AnalyzerData* data) :
         AnalyzerDataEntryBase(_name, data)
@@ -159,7 +164,7 @@ struct AnalyzerDataEntry : AnalyzerDataEntryBase  {
     template<typename KeySuffix>
     Hist& operator()(KeySuffix&& suffix)
     {
-        const auto key = SuffixToKey(std::forward<KeySuffix>(suffix));
+        const auto key = analysis::ToString(std::forward<KeySuffix>(suffix));
         auto iter = histograms.find(key);
         if(iter != histograms.end())
             return *iter->second;
@@ -173,7 +178,7 @@ struct AnalyzerDataEntry : AnalyzerDataEntryBase  {
     template<typename KeySuffix, typename... Args>
     void Emplace(KeySuffix&& suffix, Args&&... args)
     {
-        const auto key = SuffixToKey(std::forward<KeySuffix>(suffix));
+        const auto key = analysis::ToString(std::forward<KeySuffix>(suffix));
         auto iter = histograms.find(key);
         if(iter != histograms.end())
             throw analysis::exception("Histogram with suffix '%1%' already exists in '%2%'.") % key % Name();
@@ -181,8 +186,6 @@ struct AnalyzerDataEntry : AnalyzerDataEntryBase  {
         data->AddHistogram(hist);
         histograms[key] = hist;
     }
-
-
 
     const HistPtrMap& GetHistograms() const { return histograms; }
 
@@ -200,16 +203,22 @@ struct AnalyzerDataEntry : AnalyzerDataEntryBase  {
         master_hist->SetOutputDirectory(nullptr);
     }
 
-private:
-    template<typename KeySuffix>
-    static std::string SuffixToKey(KeySuffix&& suffix)
-    {
-        std::ostringstream ss_suffix;
-        ss_suffix << suffix;
-        return ss_suffix.str();
-    }
-
     std::string FullName(const std::string& key) const { return Name() + "_" + key; }
+
+    Hist& Read() { return ReadFromDirectory((*this)()); }
+    template<typename KeySuffix>
+    Hist& Read(KeySuffix&& suffix) { return ReadFromDirectory((*this)(std::forward<KeySuffix>(suffix))); }
+
+
+private:
+    Hist& ReadFromDirectory(Hist& hist)
+    {
+        auto dir = hist.GetOutputDirectory();
+        auto original_hist = ReadObject<RootContainer>(dir, hist.Name());
+        hist.CopyContent(original_hist);
+        delete original_hist;
+        return hist;
+    }
 
 private:
     HistPtr master_hist, default_hist;
