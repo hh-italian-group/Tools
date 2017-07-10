@@ -80,7 +80,7 @@ public:
         ValueType branch_value;
         TBranch* branch;
         rootTree.SetBranchAddress("values", &branch_value, &branch);
-        Long64_t N = rootTree->GetEntries();
+        Long64_t N = rootTree.GetEntries();
         for(Long64_t n = 0; n < N; ++n) {
             rootTree.GetEntry(n);
             data.push_back(branch_value);
