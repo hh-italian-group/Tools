@@ -38,6 +38,7 @@ public:
         anaData.hist(1).Fill(4);
         anaData.hist("z").Fill(21.5);
         anaData.other_hist(0).Fill(6);
+        anaData.hist(1, "b").Fill(1.4);
         std::string f = "f";
         anaData.custom_hist().Fill(3.5);
         anaData.custom_hist(f).Fill(2.4);

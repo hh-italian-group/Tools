@@ -161,10 +161,10 @@ struct AnalyzerDataEntry : AnalyzerDataEntryBase  {
         return *default_hist;
     }
 
-    template<typename KeySuffix>
-    Hist& operator()(KeySuffix&& suffix)
+    template<typename ...KeySuffix>
+    Hist& operator()(KeySuffix&&... suffix)
     {
-        const auto key = analysis::ToString(std::forward<KeySuffix>(suffix));
+        const auto key = SuffixToKey(std::forward<KeySuffix>(suffix)...);
         auto iter = histograms.find(key);
         if(iter != histograms.end())
             return *iter->second;
@@ -178,7 +178,7 @@ struct AnalyzerDataEntry : AnalyzerDataEntryBase  {
     template<typename KeySuffix, typename... Args>
     void Emplace(KeySuffix&& suffix, Args&&... args)
     {
-        const auto key = analysis::ToString(std::forward<KeySuffix>(suffix));
+        const auto key = SuffixToKey(std::forward<KeySuffix>(suffix));
         auto iter = histograms.find(key);
         if(iter != histograms.end())
             throw analysis::exception("Histogram with suffix '%1%' already exists in '%2%'.") % key % Name();
@@ -209,6 +209,18 @@ struct AnalyzerDataEntry : AnalyzerDataEntryBase  {
     template<typename KeySuffix>
     Hist& Read(KeySuffix&& suffix) { return ReadFromDirectory((*this)(std::forward<KeySuffix>(suffix))); }
 
+    static std::string SuffixToKey() { return ""; }
+
+    template<typename T, typename ...KeySuffix>
+    static std::string SuffixToKey(T&& first_suffix, KeySuffix&&... suffix)
+    {
+        std::ostringstream ss_suffix;
+        ss_suffix << first_suffix;
+        const auto other_suffix = SuffixToKey(std::forward<KeySuffix>(suffix)...);
+        if(other_suffix.size())
+            ss_suffix << "_" << other_suffix;
+        return ss_suffix.str();
+    }
 
 private:
     Hist& ReadFromDirectory(Hist& hist)
