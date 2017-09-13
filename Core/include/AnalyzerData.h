@@ -109,6 +109,27 @@ public:
     }
     const HistContainer& GetHistograms() const { return histograms; }
 
+    template<typename Histogram>
+    std::map<std::string, std::shared_ptr<SmartHistogram<Histogram>>> GetHistogramsEx() const
+    {
+        std::map<std::string, std::shared_ptr<SmartHistogram<Histogram>>> result;
+        for(const auto& hist_entry : histograms) {
+            auto smart_hist = std::dynamic_pointer_cast<SmartHistogram<Histogram>>(hist_entry.second);
+            if(smart_hist)
+                result[hist_entry.first] = smart_hist;
+        }
+        return result;
+    }
+
+    template<typename Histogram>
+    std::shared_ptr<SmartHistogram<Histogram>> TryGetHistogramEx(const std::string& name) const
+    {
+        if(!histograms.count(name))
+            return std::shared_ptr<SmartHistogram<Histogram>>();
+        const auto& hist = histograms.at(name);
+        return std::dynamic_pointer_cast<SmartHistogram<Histogram>>(hist);
+    }
+
     void AddEntry(Entry& entry)
     {
         if(entries.count(entry.Name()))
