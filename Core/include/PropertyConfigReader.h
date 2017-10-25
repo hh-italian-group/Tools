@@ -21,7 +21,7 @@ public:
 
         bool Has(const std::string& p_name) const { return properties.count(p_name); }
 
-        template<typename T>
+        template<typename T = std::string>
         T Get(const std::string& property_name) const
         {
             if(!properties.count(property_name))

@@ -44,6 +44,14 @@ struct Point<T, 1, positively_defined> {
 
     static bool IsValid(const T& x) { return !positively_defined || x >= 0; }
 
+    std::string ToString() const { return analysis::ToString(x()); }
+
+    static Point<T, 1, positively_defined> Parse(const std::string& str)
+    {
+        const auto x = analysis::Parse<T>(str);
+        return Point<T, 1, positively_defined>(x);
+    }
+
 private:
     T _x;
 };
@@ -78,46 +86,39 @@ struct Point<T, 2, positively_defined> {
 
     static bool IsValid(const T& x, const T& y) { return !positively_defined || (x >= 0 && y >= 0); }
 
+    std::string ToString() const { return analysis::ToString(x()) + ',' + analysis::ToString(y()); }
+
+    static Point<T, 2, positively_defined> Parse(const std::string& str)
+    {
+        const auto coord_list = analysis::SplitValueList(str, true, ",", false);
+        if(coord_list.size() != 2) throw analysis::exception("Invalid 2D point '%1%'.") % str;
+        const auto x = analysis::Parse<T>(coord_list.at(0));
+        const auto y = analysis::Parse<T>(coord_list.at(1));
+        return Point<T, 2, positively_defined>(x, y);
+    }
+
 private:
     T _x, _y;
 };
 
-template<typename T, bool positively_defined>
-std::ostream& operator<<(std::ostream& s, const Point<T, 2, positively_defined>& p)
+template<typename T, size_t n_dim>
+using Size = Point<T, n_dim, true>;
+
+template<typename T, size_t n_dim, bool positively_defined>
+std::ostream& operator<<(std::ostream& s, const Point<T, n_dim, positively_defined>& p)
 {
-    s << boost::format("%1% %2%") % p.x() % p.y();
+    s << p.ToString();
     return s;
 }
 
-template<typename T, bool positively_defined>
-std::istream& operator>>(std::istream& s, Point<T, 2, positively_defined>& p)
+template<typename T, size_t n_dim, bool positively_defined>
+std::istream& operator>>(std::istream& s, Point<T, n_dim, positively_defined>& p)
 {
-    T x, y;
-    s >> x >> y;
-    if(s.fail())
-        throw analysis::exception("Invalid point.");
-    p = Point<T, 2, positively_defined>(x, y);
+    std::string str;
+    s >> str;
+    p = Point<T, n_dim, positively_defined>::Parse(str);
     return s;
 }
-
-template<typename T, bool positively_defined>
-std::ostream& operator<<(std::ostream& s, const Point<T, 1, positively_defined>& p)
-{
-    s << p.x();
-    return s;
-}
-
-template<typename T, bool positively_defined>
-std::istream& operator>>(std::istream& s, Point<T, 1, positively_defined>& p)
-{
-    T x;
-    s >> x;
-    if(s.fail())
-        throw analysis::exception("Invalid point.");
-    p = Point<T, 1, positively_defined>(x);
-    return s;
-}
-
 
 template<typename T>
 struct Box {

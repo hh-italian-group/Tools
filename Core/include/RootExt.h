@@ -4,7 +4,10 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #pragma once
 
 #include <memory>
+#include <map>
 
+#include <TROOT.h>
+#include <TClass.h>
 #include <TLorentzVector.h>
 #include <TMatrixD.h>
 #include <TFile.h>
@@ -120,6 +123,31 @@ inline TDirectory* GetDirectory(TDirectory& root_dir, const std::string& name, b
         throw analysis::exception("Unable to get directory '%1%' from the root directory '%2%'.")
             % name % root_dir.GetName();
     return dir;
+}
+
+enum class ClassInheritance { TH1, TTree, TDirectory };
+
+inline ClassInheritance FindClassInheritance(const std::string& class_name)
+{
+    static std::map<std::string, ClassInheritance> classes;
+    auto iter = classes.find(class_name);
+    if(iter != classes.end())
+        return iter->second;
+    TClass *cl = gROOT->GetClass(class_name.c_str());
+    if(!cl)
+        throw analysis::exception("Unable to get TClass for class named '%1%'.") % class_name;
+
+    ClassInheritance inheritance;
+    if(cl->InheritsFrom("TH1"))
+        inheritance = ClassInheritance::TH1;
+    else if(cl->InheritsFrom("TTree"))
+        inheritance = ClassInheritance::TTree;
+    else if(cl->InheritsFrom("TDirectory"))
+        inheritance = ClassInheritance::TDirectory;
+    else
+        throw analysis::exception("Unknown class inheritance for class named '%1%'.") % class_name;
+    classes[class_name] = inheritance;
+    return inheritance;
 }
 
 } // namespace root_ext
