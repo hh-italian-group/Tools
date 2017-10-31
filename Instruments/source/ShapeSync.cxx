@@ -3,11 +3,14 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 
 #include <TKey.h>
 #include <TCanvas.h>
+#include <TRatioPlot.h>
+#include <TText.h>
 
 #include "AnalysisTools/Run/include/program_main.h"
 #include "AnalysisTools/Core/include/RootExt.h"
 #include "AnalysisTools/Core/include/TextIO.h"
 #include "AnalysisTools/Core/include/Tools.h"
+#include "AnalysisTools/Core/include/AnalysisMath.h"
 #include "AnalysisTools/Core/include/PropertyConfigReader.h"
 #include "AnalysisTools/Print/include/PlotPrimitives.h"
 
@@ -41,15 +44,16 @@ private:
     {
         const std::string& p_value = config_item.Get<>(p_name);
         const auto& pattern_str_list = SplitValueList(p_value, false, " \t", true);
-        for(const auto& pattern_str : pattern_str_list)
-            patterns.emplace_back(pattern_str);
+        for(const auto& pattern_str : pattern_str_list) {
+            const std::string full_pattern = "^" + pattern_str + "$";
+            patterns.emplace_back(full_pattern);
+        }
     }
 
     static bool HasMatch(const std::string& name, const RegexVector& patterns)
     {
-        const std::string full_name = "^" + name + "$";
         for(const auto& pattern : patterns) {
-            if(boost::regex_match(full_name, pattern))
+            if(boost::regex_match(name, pattern))
                 return true;
         }
         return false;
@@ -66,10 +70,13 @@ struct Source {
     using HistMap = std::map<std::string, HistPtr>;
     using DirHistMap = std::map<std::string, HistMap>;
     using ClassInheritance = root_ext::ClassInheritance;
+    using Position = root_ext::Point<double, 2, false>;
 
     std::shared_ptr<TFile> file;
     std::string name;
-    root_ext::Color color;
+    root_ext::Color color{kBlack};
+    Position label_pos{.5, .5};
+    float label_size{.02f};
     DirHistMap histograms;
 
     Source(size_t n, const std::vector<std::string>& inputs, const ItemCollection& config_items,
@@ -81,7 +88,11 @@ struct Source {
             throw exception("Descriptor for input #%1% not found.") % n;
         const auto& desc = config_items.at(item_name);
         name = desc.Get<>("name");
-        color = desc.Get<root_ext::Color>("color");
+        if(!desc.Read("name", name))
+            name = boost::str(boost::format("input %1%") % n);
+        desc.Read("color", color);
+        desc.Read("label_pos", label_pos);
+        desc.Read("label_size", label_size);
         LoadHistograms(pattern);
     }
 
@@ -118,10 +129,16 @@ private:
 struct DrawOptions {
     using ItemCollection = PropertyConfigReader::ItemCollection;
     using Size = root_ext::Size<double, 2>;
+    using Point = root_ext::Point<float, 2, false>;
+    using MarginBox = root_ext::MarginBox<float>;
 
     std::string x_title, y_title;
     bool divide_by_bin_width{false};
     Size canvas_size{600, 600};
+    MarginBox margins{.1f, .1f, .1f, .1f};
+    Point axes_title_offsets{1.f, 1.f};
+    double zero_threshold{-std::numeric_limits<double>::infinity()};
+    float y_ratio_label_size{.04f};
 
     DrawOptions(const ItemCollection& config_items)
     {
@@ -129,14 +146,14 @@ struct DrawOptions {
         if(!config_items.count(item_name))
             throw exception("Draw options not found.");
         const auto& opt = config_items.at(item_name);
-        if(opt.Has("x_title"))
-            x_title = opt.Get<>("x_title");
-        if(opt.Has("y_title"))
-            y_title = opt.Get<>("y_title");
-        if(opt.Has("div_bw"))
-            divide_by_bin_width = opt.Get<bool>("div_bw");
-        if(opt.Has("canvas_size"))
-            canvas_size = opt.Get<Size>("canvas_size");
+        opt.Read("x_title", x_title);
+        opt.Read("y_title", y_title);
+        opt.Read("div_bw", divide_by_bin_width);
+        opt.Read("canvas_size", canvas_size);
+        opt.Read("margins", margins);
+        opt.Read("axes_title_offsets", axes_title_offsets);
+        opt.Read("zero_threshold", zero_threshold);
+        opt.Read("y_ratio_label_size", y_ratio_label_size);
     }
 };
 
@@ -145,19 +162,25 @@ public:
     using InputDesc = PropertyConfigReader::Item;
     using NameSet = std::set<std::string>;
     using SampleItemNamesMap = std::map<std::string, NameSet>;
+    using HistPtr = Source::HistPtr;
 
     ShapeSync(const Arguments& _args) :
         args(_args)
     {
+        gROOT->SetBatch(true);
+        gROOT->SetMustClean(true);
+
         PropertyConfigReader config;
         config.Parse(args.cfg());
         if(args.input().size() < 2)
             throw exception("At least 2 inputs should be provided.");
-        for(size_t n = 0; n < args.input().size(); ++n)
-            inputs.emplace_back(n, args.input(), config.GetItems());
         patterns = std::make_shared<InputPattern>(config.GetItems());
         draw_options = std::make_shared<DrawOptions>(config.GetItems());
-        canvas = std::make_shared<TCanvas>(draw_options->canvas_size.x(), draw_options->canvas_size.y());
+        for(size_t n = 0; n < args.input().size(); ++n)
+            inputs.emplace_back(n, args.input(), config.GetItems(), *patterns);
+        canvas = std::make_shared<TCanvas>("canvas", "", draw_options->canvas_size.x(),
+                                           draw_options->canvas_size.y());
+        canvas->cd();
     }
 
     void Run()
@@ -167,8 +190,11 @@ public:
         for(auto dir_iter = common_dirs.begin(); dir_iter != common_dirs.end(); ++dir_iter) {
             std::cout << "Processing directory " << *dir_iter << "..." << std::endl;
             const auto common_hists = GetCommonHists(*dir_iter);
-            ReportNotCommonHists(*dir_iter, common_hists);
-            PrintHistograms(common_hists, *dir_iter, std::next(dir_iter) != common_dirs.end());
+            for(auto hist_iter = common_hists.begin(); hist_iter != common_hists.end(); ++hist_iter) {
+                const bool is_last = std::next(dir_iter) == common_dirs.end() &&
+                                     std::next(hist_iter) == common_hists.end();
+                DrawHistogram(*dir_iter, *hist_iter, is_last);
+            }
         }
     }
 
@@ -179,8 +205,18 @@ private:
         for(const auto& input : inputs)
             dir_names[input.name] = tools::collect_map_keys(input.histograms);
         const NameSet common_dirs = CollectCommonItems(dir_names);
-        ReportNotCommonItems(dir_names, common_dirs, "directories");
+        ReportNotCommonItems(std::cout, dir_names, common_dirs, "directories");
         return common_dirs;
+    }
+
+    NameSet GetCommonHists(const std::string& dir_name) const
+    {
+        SampleItemNamesMap hist_names;
+        for(const auto& input : inputs)
+            hist_names[input.name] = tools::collect_map_keys(input.histograms.at(dir_name));
+        const NameSet common_hists = CollectCommonItems(hist_names);
+        ReportNotCommonItems(std::cout, hist_names, common_hists, "histograms");
+        return common_hists;
     }
 
     static NameSet CollectCommonItems(const SampleItemNamesMap& items)
@@ -201,76 +237,29 @@ private:
         return common_items;
     }
 
-    static void ReportNotCommonItems(const SampleItemNamesMap& items, const NameSet& common_items,
+    static void ReportNotCommonItems(std::ostream& os, const SampleItemNamesMap& items, const NameSet& common_items,
                                      const std::string& items_type_name)
     {
         bool has_not_common = false;
-        for(auto input_iter = items.begin(); input_iter != inputs.end(); ++input_iter) {
+        for(auto input_iter = items.begin(); input_iter != items.end(); ++input_iter) {
             bool has_input_not_common = false;
-            for(const auto& dir_entry : input_iter->histograms) {
-                const std::string& dir_name = dir_entry.first;
-                if(common_items.count(dir_name)) continue;
+            for(const auto& item_name : input_iter->second) {
+                if(common_items.count(item_name)) continue;
                 if(!has_not_common)
-                    std::cout << "Not common " << items_type_name << ":\n";
+                    os << "Not common " << items_type_name << ":\n";
                 has_not_common = true;
                 if(!has_input_not_common)
-                    std::cout << input_iter->name << ": ";
+                    os << input_iter->first << ": ";
                 else
-                    std::cout << ", ";
+                    os << ", ";
                 has_input_not_common = true;
-                std::cout << dir_name;
+                os << item_name;
             }
             if(has_input_not_common)
-                std::cout << "\n";
+                os << "\n";
         }
         if(has_not_common)
-            std::cout << std::endl;
-    }
-
-    static void ReportNotCommonObjects(const NameSet& common_objects) const
-    {
-        bool has_not_common = false;
-        for(auto input_iter = inputs.begin(); input_iter != inputs.end(); ++input_iter) {
-            bool has_input_not_common = false;
-            for(const auto& dir_entry : input_iter->histograms) {
-                const std::string& dir_name = dir_entry.first;
-                if(common_objects.count(dir_name)) continue;
-                if(!has_not_common)
-                    std::cout << "Not common directories:\n";
-                has_not_common = true;
-                if(!has_input_not_common)
-                    std::cout << input_iter->name << ": ";
-                else
-                    std::cout << ", ";
-                has_input_not_common = true;
-                std::cout << dir_name;
-            }
-            if(has_input_not_common)
-                std::cout << "\n";
-        }
-        if(has_not_common)
-            std::cout << std::endl;
-    }
-
-
-    NameSet GetCommonHists(const std::string& dir_name) const
-    {
-        NameSet common_hists;
-        const auto first_input = inputs.begin();
-        for(const auto& hist_entry : first_input->histograms.at(dir_name)) {
-            const std::string& hist_name = hist_entry.first;
-            bool is_common = true;
-            for(auto input_iter = std::next(first_input); input_iter != inputs.end(); ++input_iter) {
-                if(!input_iter->histograms.at(dir_name).count(hist_name)) {
-                    is_common = false;
-                    break;
-                }
-            }
-            if(is_common)
-                common_hists.insert(hist_name);
-        }
-        return common_hists;
-
+            os << std::endl;
     }
 
     void PrintCanvas(const std::string& page_name, bool is_last_page)
@@ -283,71 +272,71 @@ private:
         else if(is_last_page && !is_first_page)
             output_name << ")";
         is_first_page = false;
-        canvas.Print(output_name.str().c_str(), print_options.str().c_str());
+
+        root_ext::WarningSuppressor ws(kWarning);
+        canvas->Print(output_name.str().c_str(), print_options.str().c_str());
     }
 
-    void DrawSuperimposedHistograms(std::shared_ptr<TH1F> Hmine, std::shared_ptr<TH1F> Hother,
-                                    const std::string& selection_label, const std::string& mine_var,
-                                    const std::string& other_var, const std::string& event_subset)
+    void DrawHistogram(const std::string& dir_name, const std::string& hist_name, bool is_last)
     {
-        const std::string title = MakeTitle(mine_var, other_var, event_subset, selection_label);
-        Hmine->SetTitle(title.c_str());
-        Hmine->GetYaxis()->SetTitle("Events");
-        Hmine->GetXaxis()->SetTitle(mine_var.c_str());
-        Hmine->SetLineColor(1);
-        Hmine->SetMarkerColor(1);
-        Hmine->SetStats(0);
+        const std::string title = dir_name + ": " + hist_name;
 
-//        Hother->GetYaxis()->SetTitle(selection_label.c_str());
-//        Hother->GetXaxis()->SetTitle(var.c_str());
-        Hother->SetLineColor(2);
-        Hother->SetMarkerColor(2);
-        Hother->SetStats(0);
+        auto input = inputs.begin();
+        auto hist = input->histograms.at(dir_name).at(hist_name);
 
-        TPad pad1("pad1","",0,0.2,1,1);
-        TPad pad2("pad2","",0,0,1,0.2);
+        hist->SetTitle(title.c_str());
+        hist->GetXaxis()->SetTitle(draw_options->x_title.c_str());
+        hist->GetYaxis()->SetTitle(draw_options->y_title.c_str());
+        hist->GetXaxis()->SetTitleOffset(draw_options->axes_title_offsets.x());
+        hist->GetYaxis()->SetTitleOffset(draw_options->axes_title_offsets.y());
+        hist->SetStats(0);
 
-        pad1.cd();
+        for(; input != inputs.end(); ++input) {
+            hist = input->histograms.at(dir_name).at(hist_name);
+            hist->SetLineColor(input->color.GetColor_t());
+            hist->SetMarkerColor(input->color.GetColor_t());
+            if(draw_options->divide_by_bin_width)
+                root_ext::DivideByBinWidth(*hist);
+        }
 
-        // Draw one histogram on top of the other
-        if(Hmine->GetMaximum()>Hother->GetMaximum())
-            Hmine->GetYaxis()->SetRangeUser(0,Hmine->GetMaximum()*1.1);
-        else
-            Hmine->GetYaxis()->SetRangeUser(0,Hother->GetMaximum()*1.1);
-        Hmine->Draw("hist");
-        Hother->Draw("histsame");
-        DrawTextLabels(static_cast<size_t>(Hmine->Integral(0,Hmine->GetNbinsX()+1)),
-                       static_cast<size_t>(Hother->Integral(0,Hother->GetNbinsX()+1)));
+        input = inputs.begin();
+        auto h1 = (input++)->histograms.at(dir_name).at(hist_name);
+        auto h2 = (input++)->histograms.at(dir_name).at(hist_name);
 
-        pad2.cd();
+        TRatioPlot* ratio_plot;
+        {
+            root_ext::WarningSuppressor ws(kError);
+            ratio_plot = new TRatioPlot(h1.get(), h2.get());
+        }
+        ratio_plot->SetH1DrawOpt("");
+        ratio_plot->SetH2DrawOpt("");
+        ratio_plot->SetLeftMargin(draw_options->margins.left());
+        ratio_plot->SetRightMargin(draw_options->margins.right());
+        ratio_plot->SetUpTopMargin(draw_options->margins.top());
+        ratio_plot->SetLowBottomMargin(draw_options->margins.bottom());
+        ratio_plot->Draw();
+        ratio_plot->GetLowerRefYaxis()->SetLabelSize(draw_options->y_ratio_label_size);
 
-        // Draw the ratio of the historgrams
-        std::unique_ptr<TH1F> HDiff(dynamic_cast<TH1F*>(Hother->Clone("HDiff")));
-        HDiff->Divide(Hmine.get());
-        ///HDiff->GetYaxis()->SetRangeUser(0.9,1.1);
-        HDiff->GetYaxis()->SetRangeUser(0.9,1.1);
-        //HDiff->GetYaxis()->SetRangeUser(0.98,1.02);
-        //HDiff->GetYaxis()->SetRangeUser(0.,2.0);
-        HDiff->GetYaxis()->SetNdivisions(3);
-        HDiff->GetYaxis()->SetLabelSize(0.1f);
-        HDiff->GetYaxis()->SetTitleSize(0.1f);
-        HDiff->GetYaxis()->SetTitleOffset(0.5);
-        //HDiff->GetYaxis()->SetTitle(myGroup + " / " + group);
-        HDiff->GetYaxis()->SetTitle("Ratio");
-        HDiff->GetXaxis()->SetNdivisions(-1);
-        HDiff->GetXaxis()->SetTitle("");
-        HDiff->GetXaxis()->SetLabelSize(0.0001f);
-        HDiff->SetMarkerStyle(7);
-        HDiff->SetMarkerColor(2);
-        HDiff->Draw("histp");
-        TLine line;
-        line.DrawLine(HDiff->GetXaxis()->GetXmin(),1,HDiff->GetXaxis()->GetXmax(),1);
+        for(; input != inputs.end(); ++input)
+            input->histograms.at(dir_name).at(hist_name)->Draw("same");
 
-        canvas.Clear();
-        pad1.Draw();
-        pad2.Draw();
+        for(input = inputs.begin(); input != inputs.end(); ++input) {
+            auto integral = Integral(*input->histograms.at(dir_name).at(hist_name), false);
+            std::wostringstream ss;
+            ss << std::wstring(input->name.begin(), input->name.end()) << L": ";
+            if(integral.GetValue() > draw_options->zero_threshold)
+                ss << integral;
+            else
+                ss << L"0";
+            TText label;
+            label.SetTextColor(input->color.GetColor_t());
+            label.SetTextSize(input->label_size);
+            label.DrawTextNDC(input->label_pos.x(), input->label_pos.y(), ss.str().c_str());
+        }
 
-        PrintCanvas(title);
+        canvas->Update();
+
+        PrintCanvas(title, is_last);
     }
 
 private:

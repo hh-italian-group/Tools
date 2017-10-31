@@ -150,6 +150,19 @@ inline ClassInheritance FindClassInheritance(const std::string& class_name)
     return inheritance;
 }
 
+struct WarningSuppressor {
+    const Int_t old_ignore_level;
+    WarningSuppressor(Int_t ignore_level)
+        : old_ignore_level(gErrorIgnoreLevel)
+    {
+        gErrorIgnoreLevel = ignore_level;
+    }
+    ~WarningSuppressor()
+    {
+        gErrorIgnoreLevel = old_ignore_level;
+    }
+};
+
 } // namespace root_ext
 
 

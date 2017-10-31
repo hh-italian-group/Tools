@@ -223,17 +223,22 @@ private:
 template<typename T>
 std::ostream& operator<<(std::ostream& s, const MarginBox<T>& b)
 {
-    s << boost::format("%1% %2% %3% %4%") % b.left() % b.bottom() % b.right() % b.top();
+    s << boost::format("%1%,%2%,%3%,%4%") % b.left() % b.bottom() % b.right() % b.top();
     return s;
 }
 
 template<typename T>
 std::istream& operator>>(std::istream& s, MarginBox<T>& b)
 {
-    T left, bottom, right, top;
-    s >> left >> bottom >> right >> top;
-    if(s.fail())
+    std::string str;
+    s >> str;
+    const auto v_list = analysis::SplitValueList(str, true, ",", false);
+    if(v_list.size() != 4)
         throw analysis::exception("Invalid margin box.");
+    const T left = analysis::Parse<T>(v_list.at(0));
+    const T bottom = analysis::Parse<T>(v_list.at(1));
+    const T right = analysis::Parse<T>(v_list.at(2));
+    const T top = analysis::Parse<T>(v_list.at(3));
     b = MarginBox<T>(left, bottom, right, top);
     return s;
 }
@@ -357,6 +362,7 @@ public:
 
     bool IsSimple() const { return detail::ReferenceColorCollection::IsReferenceColor(GetColorId()); }
     int GetColorId() const { return GetTColor().GetNumber(); }
+    Color_t GetColor_t() const { return static_cast<Color_t>(GetColorId()); }
     const TColor& GetTColor() const { return *t_color; }
 
     std::string ToString() const
@@ -487,5 +493,15 @@ ENUM_NAMES(TextAlign) = {
     { TextAlign::RightCenter, "right_center" },
     { TextAlign::RightTop, "right_top" }
 };
+
+inline void DivideByBinWidth(TH1& histogram)
+{
+    for(Int_t n = 1; n <= histogram.GetNbinsX(); ++n) {
+        const double new_value = histogram.GetBinContent(n) / histogram.GetBinWidth(n);
+        const double new_bin_error = histogram.GetBinError(n) / histogram.GetBinWidth(n);
+        histogram.SetBinContent(n, new_value);
+        histogram.SetBinError(n, new_bin_error);
+    }
+}
 
 } // namespace root_ext
