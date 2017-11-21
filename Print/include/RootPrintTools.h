@@ -21,24 +21,20 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 
 namespace root_ext {
 
-inline int CreateTransparentColor(int color, float alpha)
-{
-  TColor* adapt = gROOT->GetColor(color);
-  int new_idx = gROOT->GetListOfColors()->GetSize() + 1;
-  TColor* trans = new TColor(new_idx, adapt->GetRed(), adapt->GetGreen(),
-                             adapt->GetBlue(), "", alpha);
-  trans->SetName(Form("userColor%i", new_idx));
-  return new_idx;
-}
-
 template<typename Histogram, typename ValueType=Double_t>
-class HistogramFitter {
+class HistogramRangeSetter {
 public:
     using Range = ::analysis::Range<ValueType>;
+    using OptValue = ::boost::optional<ValueType>;
+
+    ValueType x_min{std::numeric_limits<ValueType>::max()};
+    ValueType x_max{std::numeric_limits<ValueType>::lowest()};
+    ValueType y_min{std::numeric_limits<ValueType>::max()};
+    ValueType y_max{std::numeric_limits<ValueType>::lowest()};
 
     static ValueType FindMinLimitX(const Histogram& h)
     {
-        for(Int_t i = 0; i < h.GetNbinsX(); ++i) {
+        for(Int_t i = 1; i <= h.GetNbinsX(); ++i) {
             if(h.GetBinContent(i) != ValueType(0))
                 return h.GetBinLowEdge(i);
         }
@@ -47,7 +43,7 @@ public:
 
     static ValueType FindMaxLimitX(const Histogram& h)
     {
-        for(Int_t i = h.GetNbinsX() - 1; i > 0; --i) {
+        for(Int_t i = h.GetNbinsX(); i > 0; --i) {
             if(h.GetBinContent(i) != ValueType(0))
                 return h.GetBinLowEdge(i) + h.GetBinWidth(i);
         }
@@ -57,7 +53,7 @@ public:
     static ValueType FindMinLimitY(const Histogram& h)
     {
         ValueType min = std::numeric_limits<ValueType>::max();
-        for(Int_t i = 0; i <= h.GetNbinsX() + 1; ++i) {
+        for(Int_t i = 1; i <= h.GetNbinsX(); ++i) {
             if(h.GetBinContent(i) != ValueType(0))
                 min = std::min(min, h.GetBinContent(i));
         }
@@ -67,12 +63,21 @@ public:
     static ValueType FindMaxLimitY(const Histogram& h)
     {
         ValueType max = std::numeric_limits<ValueType>::lowest();
-        for(Int_t i = 0; i <= h.GetNbinsX() + 1; ++i) {
+        for(Int_t i = 1; i <= h.GetNbinsX(); ++i) {
             if(h.GetBinContent(i) != ValueType(0))
                 max = std::max(max, h.GetBinContent(i));
         }
         return max;
     }
+
+
+    void AddHistogram(const Histogram& hist)
+    {
+        x_min = std::min
+    }
+
+
+    static void
 
 
     template<typename Container>
@@ -116,9 +121,6 @@ public:
             h->SetAxisRange(yRange.min(), yRange.max(), "Y");
         }
     }
-
-private:
-    HistogramFitter() {}
 };
 
 class Adapter {

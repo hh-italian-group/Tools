@@ -126,43 +126,6 @@ private:
     }
 };
 
-struct DrawOptions {
-    using ItemCollection = PropertyConfigReader::ItemCollection;
-    using Size = root_ext::Size<double, 2>;
-    using Point = root_ext::Point<float, 2, false>;
-    using MarginBox = root_ext::MarginBox<float>;
-
-    std::string x_title, y_title;
-    bool divide_by_bin_width{false};
-    Size canvas_size{600, 600};
-    MarginBox margins{.1f, .1f, .1f, .1f};
-    Point axes_title_offsets{1.f, 1.f};
-    double zero_threshold{-std::numeric_limits<double>::infinity()};
-    float y_ratio_label_size{.04f};
-    double y_min_sf{1}, y_max_sf{1.2};
-    double max_ratio{-1}, allowed_ratio_margin{0.2};
-
-    DrawOptions(const ItemCollection& config_items)
-    {
-        static const std::string item_name = "draw_opt";
-        if(!config_items.count(item_name))
-            throw exception("Draw options not found.");
-        const auto& opt = config_items.at(item_name);
-        opt.Read("x_title", x_title);
-        opt.Read("y_title", y_title);
-        opt.Read("div_bw", divide_by_bin_width);
-        opt.Read("canvas_size", canvas_size);
-        opt.Read("margins", margins);
-        opt.Read("axes_title_offsets", axes_title_offsets);
-        opt.Read("zero_threshold", zero_threshold);
-        opt.Read("y_ratio_label_size", y_ratio_label_size);
-        opt.Read("y_min_sf", y_max_sf);
-        opt.Read("y_max_sf", y_max_sf);
-        opt.Read("max_ratio", max_ratio);
-        opt.Read("allowed_ratio_margin", allowed_ratio_margin);
-    }
-};
-
 class ShapeSync {
 public:
     using InputDesc = PropertyConfigReader::Item;

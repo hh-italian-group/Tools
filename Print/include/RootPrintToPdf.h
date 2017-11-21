@@ -86,7 +86,7 @@ public:
         ++n_pages;
     }
 
-    void PrintStack(analysis::StackedPlotDescriptor& stackDescriptor)
+    void PrintStack(analysis::StackedPlotDescriptor& stackDescriptor, bool isLast)
     {
         if(!stackDescriptor.NeedDraw())
             return;

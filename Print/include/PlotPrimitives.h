@@ -6,6 +6,7 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #include <sstream>
 #include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
+#include <TH1.h>
 #include <TROOT.h>
 #include <TColor.h>
 #include <TAttText.h>
@@ -370,6 +371,11 @@ public:
         if(IsSimple())
             return detail::ReferenceColorCollection::ToString(GetColorId());
         return GetTColor().AsHexString();
+    }
+
+    Color CreateTransparentCopy(float alpha) const
+    {
+        return Color(TColor::GetColorTransparent(GetColorId(), alpha));
     }
 
 private:
