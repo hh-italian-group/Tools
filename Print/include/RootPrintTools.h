@@ -14,6 +14,7 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #include <TCanvas.h>
 #include <TLegend.h>
 #include <TColor.h>
+#include <TRatioPlot.h>
 
 #include "AnalysisTools/Core/include/RootExt.h"
 #include "AnalysisTools/Core/include/NumericPrimitives.h"
@@ -22,15 +23,16 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 namespace root_ext {
 
 template<typename Histogram, typename ValueType=Double_t>
-class HistogramRangeSetter {
+class HistogramRangeTuner {
 public:
     using Range = ::analysis::Range<ValueType>;
     using OptValue = ::boost::optional<ValueType>;
 
-    ValueType x_min{std::numeric_limits<ValueType>::max()};
-    ValueType x_max{std::numeric_limits<ValueType>::lowest()};
-    ValueType y_min{std::numeric_limits<ValueType>::max()};
-    ValueType y_max{std::numeric_limits<ValueType>::lowest()};
+    static std::pair<Int_t, Int_t> GetBinRangeX(const Histogram& h, bool consider_overflow_and_underflow)
+    {
+        return consider_overflow_and_underflow
+                ? std::make_pair(0, h.GetNbinsX() + 1) : std::make_pair(1, h.GetNbinsX());
+    }
 
     static ValueType FindMinLimitX(const Histogram& h)
     {
@@ -50,97 +52,90 @@ public:
         return std::numeric_limits<ValueType>::lowest();
     }
 
-    static ValueType FindMinLimitY(const Histogram& h)
+    static ValueType FindMinLimitY(const Histogram& h, bool consider_overflow_and_underflow = false)
     {
         ValueType min = std::numeric_limits<ValueType>::max();
-        for(Int_t i = 1; i <= h.GetNbinsX(); ++i) {
+        const auto bin_range = GetBinRangeX(h, consider_overflow_and_underflow);
+        for(Int_t i = bin_range.first; i <= bin_range.second; ++i) {
             if(h.GetBinContent(i) != ValueType(0))
                 min = std::min(min, h.GetBinContent(i));
         }
         return min;
     }
 
-    static ValueType FindMaxLimitY(const Histogram& h)
+    static ValueType FindMaxLimitY(const Histogram& h, bool consider_overflow_and_underflow = false)
     {
         ValueType max = std::numeric_limits<ValueType>::lowest();
-        for(Int_t i = 1; i <= h.GetNbinsX(); ++i) {
+        const auto bin_range = GetBinRangeX(h, consider_overflow_and_underflow);
+        for(Int_t i = bin_range.first; i <= bin_range.second; ++i) {
             if(h.GetBinContent(i) != ValueType(0))
                 max = std::max(max, h.GetBinContent(i));
         }
         return max;
     }
 
-
-    void AddHistogram(const Histogram& hist)
+    void Add(const Histogram& hist, bool consider_overflow_and_underflow = false)
     {
-        x_min = std::min
+        x_min = std::min(x_min, FindMinLimitX(hist));
+        x_max = std::max(x_max, FindMinLimitX(hist));
+        x_min = std::min(x_min, FindMinLimitX(hist, consider_overflow_and_underflow));
+        x_min = std::min(x_min, FindMinLimitX(hist, consider_overflow_and_underflow));
     }
 
-
-    static void
-
-
-    template<typename Container>
-    static void SetRanges(const Container& hists, bool fitX, bool fitY, Range xRange, Range yRange, bool isLogY)
+    void SetRangeX(TAxis& x_axis) const
     {
-        if(!hists.size())
-            return;
-
-        if(fitX) {
-            ValueType min = std::numeric_limits<ValueType>::max();
-            ValueType max = std::numeric_limits<ValueType>::lowest();
-            for(auto h : hists) {
-                if(!h) continue;
-                min = std::min(min, FindMinLimitX(*h));
-                max = std::max(max, FindMaxLimitX(*h));
-            }
-            xRange = Range(min, max);
-        }
-
-        if(fitY) {
-            ValueType min = std::numeric_limits<ValueType>::max();
-            ValueType max = std::numeric_limits<ValueType>::lowest();
-            for(auto h : hists) {
-                if(!h) continue;
-                min = std::min(min, FindMinLimitY(*h));
-                max = std::max(max, FindMaxLimitY(*h));
-            }
-            const double factor = isLogY ? 2.0 : 1.1;
-            min /= factor;
-            max *= factor;
-            if(isLogY) {
-                min = std::max(min, std::numeric_limits<ValueType>::min());
-                max = std::max(max, std::numeric_limits<ValueType>::min());
-            }
-            yRange = Range(min, max);
-        }
-
-        for(auto h : hists) {
-            if(!h) continue;
-            h->SetAxisRange(xRange.min(), xRange.max(), "X");
-            h->SetAxisRange(yRange.min(), yRange.max(), "Y");
-        }
+        x_axis.SetRangeUser(x_min, x_max);
     }
-};
 
-class Adapter {
+    void SetRangeY(TAxis& y_axis, bool log_y = false, ValueType max_y_sf = 1, ValueType min_y_sf = 1) const
+    {
+        const ValueType y_min_value = log_y ? std::min(y_min * min_y_sf, std::numeric_limits<ValueType>::min())
+                                            : y_min * min_y_sf;
+        y_axis.SetRangeUser(y_min_value, y_max * max_y_sf);
+    }
+
 public:
-    static TPaveLabel* NewPaveLabel(const Box<double>& box, const std::string& text)
-    {
-        return new TPaveLabel(box.left_bottom().x(), box.left_bottom().y(), box.right_top().x(), box.right_top().y(),
-                              text.c_str());
-    }
-
-    static TPad* NewPad(const Box<double>& box)
-    {
-        static const char* pad_name = "pad";
-        return new TPad(pad_name, pad_name, box.left_bottom().x(), box.left_bottom().y(), box.right_top().x(),
-                        box.right_top().y());
-    }
-
-private:
-    Adapter() {}
+    ValueType x_min{std::numeric_limits<ValueType>::max()};
+    ValueType x_max{std::numeric_limits<ValueType>::lowest()};
+    ValueType y_min{std::numeric_limits<ValueType>::max()};
+    ValueType y_max{std::numeric_limits<ValueType>::lowest()};
 };
+
+namespace plotting {
+template<typename T>
+std::shared_ptr<TPaveLabel> NewPaveLabel(const Box<T>& box, const std::string& text)
+{
+    return std::make_shared<TPaveLabel>(box.left_bottom().x(), box.left_bottom().y(),
+                                        box.right_top().x(), box.right_top().y(), text.c_str());
+}
+
+template<typename T>
+std::shared_ptr<TPad> NewPad(const Box<T>& box)
+{
+    static const char* pad_name = "pad";
+    return std::make_shared<TPad>(pad_name, pad_name, box.left_bottom().x(), box.left_bottom().y(),
+                                  box.right_top().x(), box.right_top().y());
+}
+
+template<typename T>
+void SetMargins(TPad& pad, const MarginBox<T>& box)
+{
+    pad.SetLeftMargin(box.left());
+    pad.SetBottomMargin(box.bottom());
+    pad.SetRightMargin(box.right());
+    pad.SetTopMargin(box.top());
+}
+
+template<typename T>
+void SetMargins(TRatioPlot& plot, const MarginBox<T>& box)
+{
+    plot.SetLeftMargin(box.left());
+    plot.SetLowBottomMargin(box.bottom());
+    plot.SetRightMargin(box.right());
+    plot.SetUpTopMargin(box.top());
+}
+
+} // namespace plotting
 
 template<typename Histogram, typename ValueType=Double_t>
 class HistogramPlotter {

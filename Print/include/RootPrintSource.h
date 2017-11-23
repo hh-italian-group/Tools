@@ -11,31 +11,38 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 
 namespace root_ext {
 
-struct DrawOptions {
-    using ItemCollection = analysis::PropertyConfigReader::ItemCollection;
+struct PageDrawOptions {
+    using Item = ::analysis::PropertyConfigReader::Item;
     using Size = ::root_ext::Size<double, 2>;
     using Point = ::root_ext::Point<float, 2, false>;
     using MarginBox = ::root_ext::MarginBox<float>;
+    using Box = ::root_ext::Box<double>;
 
-    std::string x_title, y_title;
+    std::string title, x_title, y_title;
+    bool draw_title{false};
     bool divide_by_bin_width{false};
+    bool log_x{false}, log_y{false};
     Size canvas_size{600, 600};
     MarginBox margins{.1f, .1f, .1f, .1f};
     Point axes_title_offsets{1.f, 1.f};
     double zero_threshold{-std::numeric_limits<double>::infinity()};
     float y_ratio_label_size{.04f};
     double y_min_sf{1}, y_max_sf{1.2};
+    bool draw_ratio{true};
     double max_ratio{-1}, allowed_ratio_margin{0.2};
+    bool draw_legend{true};
+    Box legend_box{0.6, 0.64, 0.85, 0.89};
+    bool blind{false};
 
-    DrawOptions(const ItemCollection& config_items)
+    PageDrawOptions(const Item& opt)
     {
-        static const std::string item_name = "draw_opt";
-        if(!config_items.count(item_name))
-            throw analysis::exception("Draw options not found.");
-        const auto& opt = config_items.at(item_name);
+        opt.Read("title", title);
         opt.Read("x_title", x_title);
         opt.Read("y_title", y_title);
+        opt.Read("draw_title", draw_title);
         opt.Read("div_bw", divide_by_bin_width);
+        opt.Read("log_x", log_x);
+        opt.Read("log_y", log_y);
         opt.Read("canvas_size", canvas_size);
         opt.Read("margins", margins);
         opt.Read("axes_title_offsets", axes_title_offsets);
@@ -43,8 +50,12 @@ struct DrawOptions {
         opt.Read("y_ratio_label_size", y_ratio_label_size);
         opt.Read("y_min_sf", y_max_sf);
         opt.Read("y_max_sf", y_max_sf);
+        opt.Read("draw_ratio", draw_ratio);
         opt.Read("max_ratio", max_ratio);
         opt.Read("allowed_ratio_margin", allowed_ratio_margin);
+        opt.Read("draw_legend", draw_legend);
+        opt.Read("legend_box", legend_box);
+        opt.Read("blind", blind);
     }
 };
 
@@ -125,53 +136,6 @@ struct SingleSidedPage : public Page {
     {
         RegionCollection regions;
         regions.push_back(&side);
-        return regions;
-    }
-};
-
-struct DoubleSidedPage : public Page {
-    PageSide left_side, right_side;
-
-    explicit DoubleSidedPage(bool has_title = true, bool has_stat_pad = true, bool has_legend = true)
-    {
-        layout.has_title = has_title;
-        layout.title_box = Box<double>(0.1, 0.94, 0.9, 0.98);
-        layout.title_font = 52;
-        layout.global_style = "Plain";
-        if(has_stat_pad) {
-            layout.stat_options = 1111;
-            layout.fit_options = 111;
-        } else {
-            layout.stat_options = 0;
-            layout.fit_options = 0;
-        }
-
-        left_side.layout.has_stat_pad = has_stat_pad;
-        left_side.layout.has_legend = has_legend;
-        left_side.use_log_scaleX = false;
-        left_side.use_log_scaleY = false;
-        left_side.fit_range_x = true;
-        left_side.fit_range_y = true;
-        left_side.layout.main_pad = Box<double>(0.01, 0.01, 0.35, 0.91);
-        left_side.layout.stat_pad = Box<double>(0.36, 0.01, 0.49, 0.91);
-        left_side.layout.legend_pad = Box<double>(0.5, 0.67, 0.88, 0.88);
-
-        right_side.layout.has_stat_pad = has_stat_pad;
-        right_side.layout.has_legend = has_legend;
-        right_side.use_log_scaleX = false;
-        right_side.use_log_scaleY = false;
-        right_side.fit_range_x = true;
-        right_side.fit_range_y = true;
-        right_side.layout.main_pad = Box<double>(0.51, 0.01, 0.85, 0.91);
-        right_side.layout.stat_pad = Box<double>(0.86, 0.01, 0.99, 0.91);
-        right_side.layout.legend_pad = Box<double>(0.5, 0.67, 0.88, 0.88);
-    }
-
-    virtual RegionCollection Regions() const
-    {
-        RegionCollection regions;
-        regions.push_back(&left_side);
-        regions.push_back(&right_side);
         return regions;
     }
 };

@@ -59,6 +59,8 @@ private:
 
 template<typename T, bool positively_defined>
 struct Point<T, 2, positively_defined> {
+    static const std::string& separator() { static const std::string sep = ","; return sep; }
+
     Point() : _x(0), _y(0) {}
     Point(const T& x, const T& y)
         : _x(x), _y(y)
@@ -87,11 +89,11 @@ struct Point<T, 2, positively_defined> {
 
     static bool IsValid(const T& x, const T& y) { return !positively_defined || (x >= 0 && y >= 0); }
 
-    std::string ToString() const { return analysis::ToString(x()) + ',' + analysis::ToString(y()); }
+    std::string ToString() const { return analysis::ToString(x()) + separator() + analysis::ToString(y()); }
 
     static Point<T, 2, positively_defined> Parse(const std::string& str)
     {
-        const auto coord_list = analysis::SplitValueList(str, true, ",", false);
+        const auto coord_list = analysis::SplitValueList(str, true, separator(), false);
         if(coord_list.size() != 2) throw analysis::exception("Invalid 2D point '%1%'.") % str;
         const auto x = analysis::Parse<T>(coord_list.at(0));
         const auto y = analysis::Parse<T>(coord_list.at(1));
@@ -124,6 +126,8 @@ std::istream& operator>>(std::istream& s, Point<T, n_dim, positively_defined>& p
 template<typename T>
 struct Box {
     using Position = Point<T, 2>;
+    static const std::string& separator() { return Position::separator(); }
+
     Box() {}
 
     Box(const Position& left_bottom, const Position& right_top) : _left_bottom(left_bottom), _right_top(right_top)
@@ -169,25 +173,29 @@ private:
 template<typename T>
 std::ostream& operator<<(std::ostream& s, const Box<T>& b)
 {
-    s << b.left_bottom() << " " << b.right_top();
+    s << b.left_bottom() << Box<T>::separator() << b.right_top();
     return s;
 }
 
 template<typename T>
 std::istream& operator>>(std::istream& s, Box<T>& b)
 {
-    typename Box<T>::Position left_bottom, right_top;
-    try {
-        s >> left_bottom >> right_top;
-    }catch(analysis::exception&) {
+    std::string str;
+    s >> str;
+    const auto v_list = analysis::SplitValueList(str, true, Box<T>::separator(), false);
+    if(v_list.size() != 4)
         throw analysis::exception("Invalid box.");
-    }
-    b = Box<T>(left_bottom, right_top);
+    const T left_bottom_x = analysis::Parse<T>(v_list.at(0));
+    const T left_bottom_y = analysis::Parse<T>(v_list.at(1));
+    const T right_top_x = analysis::Parse<T>(v_list.at(2));
+    const T right_top_y = analysis::Parse<T>(v_list.at(3));
+    b = Box<T>(left_bottom_x, left_bottom_y, right_top_x, right_top_y);
     return s;
 }
 
 template<typename T>
 struct MarginBox {
+    static const std::string& separator() { return Box<T>::separator(); }
     MarginBox() : _left(0), _bottom(0), _right(0), _top(0) {}
 
     MarginBox(const T& left, const T& bottom, const T& right, const T& top)
@@ -224,7 +232,8 @@ private:
 template<typename T>
 std::ostream& operator<<(std::ostream& s, const MarginBox<T>& b)
 {
-    s << boost::format("%1%,%2%,%3%,%4%") % b.left() % b.bottom() % b.right() % b.top();
+    const auto& sep = MarginBox<T>::separator();
+    s <<  b.left() << sep << b.bottom() << sep << b.right() << sep << b.top();
     return s;
 }
 
@@ -233,7 +242,7 @@ std::istream& operator>>(std::istream& s, MarginBox<T>& b)
 {
     std::string str;
     s >> str;
-    const auto v_list = analysis::SplitValueList(str, true, ",", false);
+    const auto v_list = analysis::SplitValueList(str, true, MarginBox<T>::separator(), false);
     if(v_list.size() != 4)
         throw analysis::exception("Invalid margin box.");
     const T left = analysis::Parse<T>(v_list.at(0));
