@@ -3,9 +3,6 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 
 #pragma once
 
-#include <iostream>
-#include <iomanip>
-#include <memory>
 
 #include <TH1.h>
 #include <THStack.h>
@@ -14,12 +11,7 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #include <TStyle.h>
 #include <TROOT.h>
 
-#include "RootPrintSource.h"
-#include "TdrStyle.h"
-#include "CMS_lumi.h"
-
 #include "SmartHistogram.h"
-#include "HttStyles.h"
 
 namespace analysis {
 

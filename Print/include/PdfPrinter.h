@@ -4,41 +4,39 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #pragma once
 
 #include <sstream>
-#include <stdexcept>
 
 #include <TROOT.h>
 #include <TStyle.h>
 #include <Rtypes.h>
 #include <TError.h>
-#include <TH1.h>
-#include <TH2.h>
-#include <TProfile.h>
-#include <THStack.h>
 
-#include "RootPrintSource.h"
-#include "TdrStyle.h"
-#include "StackedPlotDescriptor.h"
+#include "DrawOptions.h"
+#include "RootPrintTools.h"
 
 namespace root_ext {
-
 class PdfPrinter {
+    using PageOptions = draw_options::Page;
+
 public:
-    PdfPrinter(const std::string& _output_file_name, bool _verbose = false)
-        : canvas(new TCanvas("","",50, 50, 700, 700)), output_file_name(_output_file_name), n_pages(0),
-          verbose(_verbose)
+    PdfPrinter(const std::string& _output_file_name, const PageOptions& page_opt) :
+        canvas(plotting::NewCanvas(page_opt.canvas_size)), output_file_name(_output_file_name)
     {
-//        int W = 700;
-//        int H = 700;
 
-//        int H_ref = 700;
-//        int W_ref = 700;
+        gStyle->SetPaperSize(page_opt.paper_size.x(), page_opt.paper_size.y());
+        gStyle->SetPalette(page_opt.palette);
+        gStyle->SetEndErrorSize(page_opt.end_error_size);
 
-//        float T = 0.08*H_ref;
-//        float B = 0.12*H_ref;
-//        float L = 0.12*W_ref;
-//        float R = 0.04*W_ref;
+        canvas->SetFillColor(page_opt.canvas_color.GetColor_t());
+        canvas->SetBorderSize(page_opt.canvas_border_size);
+        canvas->SetBorderMode(page_opt.canvas_border_mode);
 
-        canvas->SetFillColor(0);
+        if(page_opt.HasMainPad()) {
+            main_pad = plotting::NewPad(page_opt.main_pad);
+            plotting::SetMargins(*main_pad, page_opt.margins);
+        } else {
+            main_pad = canvas;
+        }
+
         canvas->SetBorderMode(0);
         canvas->SetFrameFillStyle(0);
         canvas->SetFrameLineColor(kWhite);
@@ -86,7 +84,7 @@ public:
         ++n_pages;
     }
 
-    void PrintStack(analysis::StackedPlotDescriptor& stackDescriptor, bool isLast)
+    void PrintStack(analysis::StackedPlotDescriptor& stackDescriptor, bool is_last)
     {
         if(!stackDescriptor.NeedDraw())
             return;
@@ -154,9 +152,9 @@ private:
 
 private:
     std::shared_ptr<TCanvas> canvas;
+    std::shared_ptr<TPad> main_pad;
     std::string output_file_name;
-    size_t n_pages;
-    bool verbose;
+    bool has_first_page{false}, has_last_page{false};
 };
 
 } // namespace root_ext

@@ -118,6 +118,14 @@ std::shared_ptr<TPad> NewPad(const Box<T>& box)
 }
 
 template<typename T>
+std::shared_ptr<TCanvas> NewCanvas(const Size<T, 2>& size)
+{
+    static const char* canvas_name = "canvas";
+    return std::make_shared<TCanvas>(canvas_name, canvas_name, size.x(), size.y());
+}
+
+
+template<typename T>
 void SetMargins(TPad& pad, const MarginBox<T>& box)
 {
     pad.SetLeftMargin(box.left());
@@ -136,107 +144,4 @@ void SetMargins(TRatioPlot& plot, const MarginBox<T>& box)
 }
 
 } // namespace plotting
-
-template<typename Histogram, typename ValueType=Double_t>
-class HistogramPlotter {
-public:
-    struct Options {
-        Color_t color;
-        Width_t line_width;
-        Box<double> pave_stats_box;
-        Double_t pave_stats_text_size;
-        Color_t fit_color;
-        Width_t fit_line_width;
-        Options() : color(kBlack), line_width(1), pave_stats_text_size(0), fit_color(kBlack), fit_line_width(1) {}
-        Options(Color_t _color, Width_t _line_width, const Box<double>& _pave_stats_box, Double_t _pave_stats_text_size,
-            Color_t _fit_color, Width_t _fit_line_width)
-            : color(_color), line_width(_line_width), pave_stats_box(_pave_stats_box),
-              pave_stats_text_size(_pave_stats_text_size), fit_color(_fit_color), fit_line_width(_fit_line_width) {}
-    };
-
-    struct Entry {
-        Histogram* histogram;
-        Options plot_options;
-        Entry(Histogram* _histogram, const Options& _plot_options)
-            : histogram(_histogram), plot_options(_plot_options) {}
-    };
-
-    using HistogramContainer = std::vector<Histogram*>;
-
-public:
-    HistogramPlotter(const std::string& _title, const std::string& _axis_titleX, const std::string& _axis_titleY)
-        : title(_title), axis_titleX(_axis_titleX),axis_titleY(_axis_titleY) {}
-
-    void Add(Histogram* histogram, const Options& plot_options)
-    {
-        histograms.push_back(histogram);
-        options.push_back(plot_options);
-    }
-
-    void Add(const Entry& entry)
-    {
-        histograms.push_back(entry.histogram);
-        options.push_back(entry.plot_options);
-    }
-
-    void Superpose(TPad* main_pad, TPad* stat_pad, bool draw_legend, const Box<double>& legend_box,
-                   const std::string& draw_options)
-    {
-        if(!histograms.size() || !main_pad)
-            return;
-
-        histograms[0]->SetTitle(title.c_str());
-        histograms[0]->GetXaxis()->SetTitle(axis_titleX.c_str());
-        histograms[0]->GetYaxis()->SetTitle(axis_titleY.c_str());
-
-        TLegend* legend = 0;
-        if(draw_legend) {
-            legend = new TLegend(legend_box.left_bottom().x(), legend_box.left_bottom().y(),
-                                 legend_box.right_top().x(), legend_box.right_top().y());
-        }
-
-        for(unsigned n = 0; n < histograms.size(); ++n) {
-            main_pad->cd();
-            const Options& o = options[n];
-            Histogram* h = histograms[n];
-            if(!h)
-                continue;
-
-            const char* opt = n ? "sames" : draw_options.c_str();
-            h->Draw(opt);
-            if(legend) {
-                legend->AddEntry(h, h->GetName());
-                legend->Draw();
-            }
-
-            main_pad->Update();
-            if(!stat_pad)
-                continue;
-            stat_pad->cd();
-            TPaveStats *pave_stats = dynamic_cast<TPaveStats*>(h->GetListOfFunctions()->FindObject("stats"));
-
-            TPaveStats *pave_stats_copy = root_ext::CloneObject(*pave_stats);
-            h->SetStats(0);
-
-            pave_stats_copy->SetX1NDC(o.pave_stats_box.left_bottom().x());
-            pave_stats_copy->SetX2NDC(o.pave_stats_box.right_top().x());
-            pave_stats_copy->SetY1NDC(o.pave_stats_box.left_bottom().y());
-            pave_stats_copy->SetY2NDC(o.pave_stats_box.right_top().y());
-            pave_stats_copy->ResetAttText();
-            pave_stats_copy->SetTextColor(o.color);
-            pave_stats_copy->SetTextSize(static_cast<float>(o.pave_stats_text_size));
-            pave_stats_copy->Draw();
-            stat_pad->Update();
-        }
-    }
-
-    const HistogramContainer& Histograms() const { return histograms; }
-
-private:
-    HistogramContainer histograms;
-    std::vector<Options> options;
-    std::string title;
-    std::string axis_titleX, axis_titleY;
-};
-
 } // root_ext

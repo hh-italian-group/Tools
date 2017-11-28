@@ -28,6 +28,12 @@ struct Point<T, 1, positively_defined> {
             throw analysis::exception("Invalid point %1%.") % x;
     }
 
+    bool operator ==(const Point<T, 1, positively_defined>& other) const
+    {
+        return x() == other.x();
+    }
+    bool operator !=(const Point<T, 1, positively_defined>& other) const { return !(*this == other); }
+
     const T& x() const { return _x; }
     operator T() const { return _x; }
     Point<T, 1, positively_defined> operator+(const Point<T, 1, positively_defined>& other) const
@@ -68,6 +74,12 @@ struct Point<T, 2, positively_defined> {
         if(!IsValid(x, y))
             throw analysis::exception("Invalid point (%1%, %2%).") % x % y;
     }
+
+    bool operator ==(const Point<T, 2, positively_defined>& other) const
+    {
+        return x() == other.x() && y() == other.y();
+    }
+    bool operator !=(const Point<T, 2, positively_defined>& other) const { return !(*this == other); }
 
     const T& x() const { return _x; }
     const T& y() const { return _y; }
@@ -140,6 +152,12 @@ struct Box {
     {
         CheckValidity();
     }
+
+    bool operator ==(const Box<T>& other) const
+    {
+        return left_bottom() == other.left_bottom() && right_top() == other.right_top();
+    }
+    bool operator !=(const Box<T>& other) const { return !(*this == other); }
 
     const Position& left_bottom() const { return _left_bottom; }
     const Position& right_top() const { return _right_top; }
