@@ -144,11 +144,11 @@ public:
         if(data_histogram)
             throw std::runtime_error("Only one data histogram per stack is supported.");
 
-        data_histogram = PrepareHistogram(original_data);
+        data_histogram = PrepareHistogram(original_data, true);
         data_histogram->SetLegendTitle(legend_title);
 
-        if(blind)
-            BlindHistogram(data_histogram, blind_regions);
+//        if(blind)
+//            BlindHistogram(data_histogram, blind_regions);
     }
 
     bool NeedDraw() const
@@ -285,8 +285,8 @@ public:
 
             data_histogram->SetMarkerStyle(20);
             data_histogram->SetMarkerSize(1.1f);
-//            data_histogram->Draw("samepPE0X0");
-            data_histogram->Draw("pesame");
+            data_histogram->Draw("samepPE0");
+//            data_histogram->Draw("pE0same");
         }
 
         text->Draw("same");
@@ -303,6 +303,9 @@ public:
         const std::string axis_titleX = page.side.axis_titleX;
         if (data_histogram && draw_ratio){
             ratio_pad = std::shared_ptr<TPad>(root_ext::Adapter::NewPad(page.side.layout.ratio_pad));
+            if(page.side.use_log_scaleX)
+                ratio_pad->SetLogx();
+
             ratio_pad->Draw();
 
             ratio_pad->cd();
@@ -356,9 +359,11 @@ public:
     }
 
 private:
-    hist_ptr PrepareHistogram(const Histogram& original_histogram)
+    hist_ptr PrepareHistogram(const Histogram& original_histogram, bool set_poisson_errors = false)
     {
         hist_ptr histogram(new Histogram(original_histogram));
+        if(set_poisson_errors)
+            histogram->SetBinErrorOption(TH1::kPoisson);
         histogram->SetLineColor(kBlack);
         histogram->SetLineWidth(1.);
         if (histogram->NeedToDivideByBinWidth())
@@ -383,6 +388,7 @@ private:
 
     void UpdateDrawInfo(hist_ptr hist)
     {
+        page.side.use_log_scaleX = hist->UseLogX();
         page.side.use_log_scaleY = hist->UseLogY();
         page.side.axis_titleX = hist->GetXTitle();
         page.side.axis_titleY = hist->GetYTitle();
