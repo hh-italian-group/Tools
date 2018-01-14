@@ -3,158 +3,202 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 
 #pragma once
 
-#include <sstream>
-
 #include <TROOT.h>
 #include <TStyle.h>
 #include <Rtypes.h>
 #include <TError.h>
+#include <TLatex.h>
 
 #include "DrawOptions.h"
 #include "RootPrintTools.h"
 
 namespace root_ext {
 class PdfPrinter {
-    using PageOptions = draw_options::Page;
-
 public:
-    PdfPrinter(const std::string& _output_file_name, const PageOptions& page_opt) :
-        canvas(plotting::NewCanvas(page_opt.canvas_size)), output_file_name(_output_file_name)
+    using exception = ::analysis::exception;
+    using PageOptions = draw_options::Page;
+    using LegendOptions = draw_options::Legend;
+    using LabelOptions = draw_options::Text;
+    using PosElem = draw_options::PositionedElement;
+    using PosElemMap = std::vector<std::string, const PosElem*>;
+    using Point = draw_options::Point;
+    using Size = draw_options::Size;
+
+    PdfPrinter(const std::string& _output_file_name, const draw_options::ItemCollection& opt_items,
+               const std::string& page_opt_name) :
+        output_file_name(_output_file_name)
     {
+        if(!opt_items.count(page_opt_name))
+            throw exception("Page draw options '%1%' not found.") % page_opt_name;
+        page_opt = PageOptions(opt_items.at(page_opt_name));
+        canvas = plotting::NewCanvas(page_opt.canvas_size);
 
         gStyle->SetPaperSize(page_opt.paper_size.x(), page_opt.paper_size.y());
         gStyle->SetPalette(page_opt.palette);
         gStyle->SetEndErrorSize(page_opt.end_error_size);
+        gStyle->SetPadGridX(page_opt.grid_xy.x());
+        gStyle->SetPadGridY(page_opt.grid_xy.y());
+        gStyle->SetPadTickX(page_opt.tick_xy.x());
+        gStyle->SetPadTickY(page_opt.tick_xy.y());
+        gStyle->SetTickLength(page_opt.tick_length_xy.x(), "X");
+        gStyle->SetTickLength(page_opt.tick_length_xy.y(), "Y");
+        gStyle->SetNdivisions(page_opt.n_div_xy.x(), "X");
+        gStyle->SetNdivisions(page_opt.n_div_xy.y(), "Y");
 
         canvas->SetFillColor(page_opt.canvas_color.GetColor_t());
         canvas->SetBorderSize(page_opt.canvas_border_size);
         canvas->SetBorderMode(page_opt.canvas_border_mode);
 
-        if(page_opt.HasMainPad()) {
-            main_pad = plotting::NewPad(page_opt.main_pad);
-            plotting::SetMargins(*main_pad, page_opt.margins);
-        } else {
-            main_pad = canvas;
+        main_pad = plotting::NewPad(page_opt.main_pad);
+        plotting::SetMargins(*main_pad, page_opt.margins);
+        left_top_origin = Point(page_opt.main_pad.left_bottom_x() + page_opt.margins.left(),
+                                page_opt.main_pad.right_top_y() - page_opt.margins.top());
+        right_top_origin = Point(page_opt.main_pad.right_top_x() - page_opt.margins.right(),
+                                 page_opt.main_pad.right_top_y() - page_opt.margins.top());
+        left_bottom_origin = Point(page_opt.main_pad.left_bottom_x() + page_opt.margins.left(),
+                                   page_opt.main_pad.left_bottom_y() + page_opt.margins.bottom());
+        right_bottom_origin = Point(page_opt.main_pad.right_top_x() - page_opt.margins.right(),
+                                    page_opt.main_pad.left_bottom_y() + page_opt.margins.bottom());
+        inner_size = Size(page_opt.main_pad.right_top_x() - page_opt.main_pad.left_bottom_x()
+                          - page_opt.margins.left() - page_opt.margins.right(),
+                          page_opt.main_pad.right_top_y() - page_opt.main_pad.left_bottom_y()
+                          - page_opt.margins.bottom() - page_opt.margins.top());
+
+
+        if(page_opt.legend_opt.size()) {
+            if(!opt_items.count(page_opt.legend_opt))
+                throw exception("Legend options '%1%' not found.") % page_opt.legend_opt;
+            legend_opt = LegendOptions(opt_items.at(page_opt.legend_opt));
+            positioned_elements[page_opt.legend_opt] = &(*legend_opt);
         }
 
-        canvas->SetBorderMode(0);
-        canvas->SetFrameFillStyle(0);
-        canvas->SetFrameLineColor(kWhite);
-        canvas->SetFrameBorderMode(0);
-//        canvas->SetLeftMargin( L/W );
-//        canvas->SetRightMargin( R/W );
-//        canvas->SetTopMargin( T/H );
-//        canvas->SetBottomMargin( B/H );
-//        canvas->SetTickx(0);
-//        canvas->SetTicky(0);
-
-        const Int_t old_gErrorIgnoreLevel = gErrorIgnoreLevel;
-        if(!verbose)
-            gErrorIgnoreLevel = kWarning;
-        canvas->Print((output_file_name + "[").c_str());
-        gErrorIgnoreLevel = old_gErrorIgnoreLevel;
+        for(const auto& label_opt_name : page_opt.text_boxes_opt) {
+            if(!opt_items.count(label_opt_name))
+                throw exception("Text label options '%1%' not found.") % label_opt_name;
+            label_opts[label_opt_name] = LabelOptions(opt_items.at(label_opt_name));
+            positioned_elements[label_opt_name] = &label_opts.at(label_opt_name);
+        }
     }
 
-    template<typename Source>
-    void Print(const Page& page, const Source& source)
+    LabelOptions& GetLabelOptions(const std::string& name)
     {
-        gROOT->SetStyle(page.layout.global_style.c_str());
-        gStyle->SetOptStat(page.layout.stat_options);
-        gStyle->SetOptFit(page.layout.fit_options);
-        canvas->cd();
-
-        canvas->SetTitle(page.title.c_str());
-        if(page.layout.has_title) {
-            TPaveLabel *title = Adapter::NewPaveLabel(page.layout.title_box, page.title);
-            title->SetTextFont(page.layout.title_font);
-            title->Draw();
-        }
-
-        Page::RegionCollection page_regions = page.Regions();
-        for(Page::RegionCollection::const_iterator iter = page_regions.begin(); iter != page_regions.end(); ++iter)
-        {
-            canvas->cd();
-            DrawHistograms(*(*iter), source);
-        }
-
-        canvas->Draw();
-        std::ostringstream print_options;
-        print_options << "Title: " << page.title;
-        canvas->Print(output_file_name.c_str(), print_options.str().c_str());
-        ++n_pages;
+        if(!label_opts.count(name))
+            throw exception("Text label '%1%' not found.") % name;
+        return label_opts.at(name);
     }
 
-    void PrintStack(analysis::StackedPlotDescriptor& stackDescriptor, bool is_last)
+    template<typename PlotDescriptor>
+    void Print(const std::string& title, PlotDescriptor& desc, bool is_last)
     {
-        if(!stackDescriptor.NeedDraw())
+        if(!desc.HasPrintableContent())
             return;
+        if(is_last && has_last_page)
+            throw exception("Last page has already been printed.");
+
         canvas->cd();
-        canvas->SetTitle(stackDescriptor.GetTitle().c_str());
         canvas->Clear();
-        stackDescriptor.Draw(*canvas);
-        canvas->Draw();
-        std::ostringstream print_options;
-        print_options << "Title: " << stackDescriptor.GetTitle();
-        const Int_t old_gErrorIgnoreLevel = gErrorIgnoreLevel;
-        gErrorIgnoreLevel = kWarning;
-        canvas->Print(output_file_name.c_str(), print_options.str().c_str());
-        gErrorIgnoreLevel = old_gErrorIgnoreLevel;
-        ++n_pages;
-    }
+        canvas->SetTitle(title.c_str());
+        main_pad->Draw();
+        main_pad->cd();
 
-    ~PdfPrinter()
-    {
-        const Int_t old_gErrorIgnoreLevel = gErrorIgnoreLevel;
-        gErrorIgnoreLevel = kWarning;
-        if (n_pages > 1){
-            canvas->Clear();
-            canvas->Print(output_file_name.c_str());
+        std::vector<std::shared_ptr<TObject>> plot_items;
+        std::shared_ptr<TLegend> legend;
+        if(legend_opt) {
+            const auto legend_pos = GetAbsolutePosition(page_opt.legend_opt);
+            legend = std::make_shared<TLegend>(legend_pos.x(), legend_pos.y(),
+                                               legend_pos.x() + legend_opt->size.x() * inner_size.x(),
+                                               legend_pos.y() + legend_opt->size.y() * inner_size.y());
+            legend->SetFillColor(legend_opt->fill_color.GetColor_t());
+            legend->SetFillStyle(legend_opt->fill_style);
+            legend->SetBorderSize(legend_opt->border_size);
+            legend->SetTextSize(legend_opt->text_size);
+            legend->SetTextFont(legend_opt->font.code());
         }
-        canvas->Print((output_file_name+"]").c_str());
-        gErrorIgnoreLevel = old_gErrorIgnoreLevel;
-        if(verbose)
-            std::cout << "Info in <TCanvas::Print>: pdf file " << output_file_name << " has been closed" << std::endl;
+        desc.Draw(*main_pad, legend, plot_items);
+        legend->Draw("same");
+
+        for(const auto& label_opt_entry : label_opts) {
+            const auto& label_name = label_opt_entry.first;
+            const LabelOptions& label_opt = label_opt_entry.second;
+            auto pos = GetAbsolutePosition(label_name);
+            for(const auto& line : label_opt.text) {
+                std::shared_ptr<TLatex> latex(new TLatex(pos.x(), pos.y(), line.c_str()));
+                latex->SetNDC();
+                latex->SetTextSize(label_opt.text_size);
+                latex->SetTextFont(label_opt.font.code());
+                latex->SetTextAlign(static_cast<Short_t>(label_opt.align));
+                latex->SetTextAngle(static_cast<float>(label_opt.angle.value_degrees()));
+                latex->SetTextColor(label_opt.color.GetColor_t());
+                latex->Draw("same");
+                plot_items.push_back(latex);
+                const float alpha = static_cast<float>(label_opt.angle.value());
+                const float cos = std::cos(alpha), sin = std::sin(alpha);
+                const Point shift(0, -(1 + label_opt.line_spacing) * static_cast<float>(latex->GetYsize()));
+                pos = pos + Point(shift.x() * cos + shift.y() * sin, - shift.x() * sin + shift.y() * cos);
+            }
+        }
+
+        main_pad->Draw();
+        if(main_pad != canvas)
+            canvas->Draw();
+
+        std::ostringstream print_options, output_name;
+        print_options << "Title:" << title;
+        output_name << output_file_name;
+        if(!has_first_page && !is_last)
+            output_name << "(";
+        else if(has_first_page && is_last)
+            output_name << ")";
+
+        root_ext::WarningSuppressor ws(kWarning);
+        canvas->Print(output_name.str().c_str(), print_options.str().c_str());
+        has_first_page = true;
+        has_last_page = is_last;
     }
 
 private:
-    template<typename Source>
-    void DrawHistograms(const PageSide& page_side, const Source& source)
+    Point GetAbsolutePosition(const std::string& name) const
     {
-        typedef root_ext::HistogramPlotter<typename Source::Histogram, typename Source::ValueType> Plotter;
-        typedef root_ext::HistogramFitter<typename Source::Histogram, typename Source::ValueType> Fitter;
+        std::set<std::string> previous_names;
+        return GetAbsolutePosition(name, previous_names);
+    }
 
-        TPad* stat_pad = 0;
-        if(page_side.layout.has_stat_pad) {
-            stat_pad = Adapter::NewPad(page_side.layout.stat_pad);
-            stat_pad->Draw();
+    Point GetAbsolutePosition(const std::string& name, std::set<std::string>& previous_names) const
+    {
+        if(!positioned_elements.count(name))
+            throw exception("Element with name '%1%' not found.") % name;
+        if(previous_names.count(name))
+            throw exception("A loop is found in the elemnt position definition.");
+        const auto& elem = *positioned_elements.at(name);
+        if(!elem.pos_ref.size())
+            return elem.pos;
+        if(elem.pos_ref == "inner_left_top")
+            return left_top_origin + elem.pos * inner_size.flip_y();
+        if(elem.pos_ref == "inner_right_top")
+            return right_top_origin - elem.pos * inner_size;
+        if(elem.pos_ref == "inner_left_bottom")
+            return left_bottom_origin + elem.pos * inner_size;
+        if(elem.pos_ref == "inner_right_bottom")
+            return right_bottom_origin + elem.pos * inner_size.flip_x();
+        if(positioned_elements.count(elem.pos_ref)) {
+            previous_names.insert(name);
+            const auto& ref_position = GetAbsolutePosition(elem.pos_ref, previous_names);
+            return ref_position + elem.position * inner_size;
         }
-
-        TPad *pad = Adapter::NewPad(page_side.layout.main_pad);
-        if(page_side.use_log_scaleX)
-            pad->SetLogx();
-        if(page_side.use_log_scaleY)
-            pad->SetLogy();
-        pad->Draw();
-        pad->cd();
-
-        Plotter plotter(page_side.histogram_title, page_side.axis_titleX, page_side.axis_titleY);
-        for(unsigned n = 0; n < source.Size(); ++n)
-        {
-            const typename Plotter::Entry entry = source.Get(n, page_side.histogram_name);
-            plotter.Add(entry);
-        }
-
-        Fitter::SetRanges(plotter.Histograms(), page_side.fit_range_x, page_side.fit_range_y, page_side.xRange,
-                          page_side.yRange, page_side.use_log_scaleY);
-        plotter.Superpose(pad, stat_pad, page_side.layout.has_legend, page_side.layout.legend_pad,
-                          page_side.draw_options);
+        throw analysis::exception("Unknown position reference '%1%'.") % elem.pos_ref;
     }
 
 private:
+    PageOptions page_opt;
+    boost::optional<LegendOptions> legend_opt;
+    std::map<std::string, LabelOptions> label_opts;
     std::shared_ptr<TCanvas> canvas;
     std::shared_ptr<TPad> main_pad;
     std::string output_file_name;
     bool has_first_page{false}, has_last_page{false};
+    PosElemMap positioned_elements;
+    Point left_top_origin, right_top_origin, left_bottom_origin, right_bottom_origin;
+    Size inner_size;
 };
 
 } // namespace root_ext

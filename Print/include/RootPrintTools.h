@@ -124,7 +124,6 @@ std::shared_ptr<TCanvas> NewCanvas(const Size<T, 2>& size)
     return std::make_shared<TCanvas>(canvas_name, canvas_name, size.x(), size.y());
 }
 
-
 template<typename T>
 void SetMargins(TPad& pad, const MarginBox<T>& box)
 {
@@ -141,6 +140,35 @@ void SetMargins(TRatioPlot& plot, const MarginBox<T>& box)
     plot.SetLowBottomMargin(box.bottom());
     plot.SetRightMargin(box.right());
     plot.SetUpTopMargin(box.top());
+}
+
+template<typename Range = ::analysis::Range<double>>
+std::shared_ptr<TGraphAsymmErrors> HistogramToGraph(const TH1& hist, bool divide_by_bin_width = false,
+                                                    const ::analysis::MultiRange<Range>& blind_ranges = {})
+{
+    std::vector<double> x, y, exl, exh, eyl, eyh;
+    size_t n = 0;
+    for(int bin = 1; bin <= hist.GetNbinsX(); ++bin) {
+        const Range bin_range(hist.GetBinLowEdge(bin), hist.GetBinLowEdge(bin + 1),
+                              ::analysis::RangeBoundaries::MinIncluded);
+        if(blind_ranges.Overlaps(bin_range))
+            continue;
+        x.push_back(hist.GetBinCenter(bin));
+        exl.push_back(x[n] - hist.GetBinLowEdge(bin));
+        exh.push_back(hist.GetBinLowEdge(bin + 1) - x[n]);
+        y.push_back(hist.GetBinContent(bin));
+        eyl.push_back(hist.GetBinErrorLow(bin));
+        eyh.push_back(hist.GetBinErrorUp(bin));
+        if(divide_by_bin_width) {
+            const double bin_width = hist.GetBinWidth(bin);
+            y[n] /= bin_width;
+            eyl[n] /= bin_width;
+            eyh[n] /= bin_width;
+        }
+        ++n;
+    }
+    return std::make_shared<TGraphAsymmErrors>(static_cast<int>(n), x.data(), y.data(), exl.data(), exh.data(),
+                                               eyl.data(), eyh.data());
 }
 
 } // namespace plotting

@@ -117,6 +117,40 @@ private:
     T _x, _y;
 };
 
+template<>
+struct Point<bool, 2, false> {
+    static const std::string& separator() { static const std::string sep = ","; return sep; }
+
+    Point() : _x(false), _y(false) {}
+    Point(bool x, bool y) : _x(x), _y(y) {}
+
+    bool operator ==(const Point<bool, 2, false>& other) const
+    {
+        return x() == other.x() && y() == other.y();
+    }
+    bool operator !=(const Point<bool, 2, false>& other) const { return !(*this == other); }
+
+    const bool& x() const { return _x; }
+    const bool& y() const { return _y; }
+
+    Point<bool, 2, false> flip_x() const { return Point<bool, 2, false>(!x(), y()); }
+    Point<bool, 2, false> flip_y() const { return Point<bool, 2, false>(x(), !y()); }
+
+    std::string ToString() const { return analysis::ToString(x()) + separator() + analysis::ToString(y()); }
+
+    static Point<bool, 2, false> Parse(const std::string& str)
+    {
+        const auto coord_list = analysis::SplitValueList(str, true, separator(), false);
+        if(coord_list.size() != 2) throw analysis::exception("Invalid 2D point '%1%'.") % str;
+        const auto x = analysis::Parse<bool>(coord_list.at(0));
+        const auto y = analysis::Parse<bool>(coord_list.at(1));
+        return Point<bool, 2, false>(x, y);
+    }
+
+private:
+    bool _x, _y;
+};
+
 template<typename T, size_t n_dim>
 using Size = Point<T, n_dim, true>;
 
