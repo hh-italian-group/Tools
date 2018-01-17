@@ -61,150 +61,53 @@ public:
 
     bool HasPrintableContent() const { return signals.size() || backgrounds.size() || data; }
 
-    void Draw(TPad& main_pad, std::shared_ptr<TLegend> legend, std::vector<std::shared_ptr<TObject>>& plot_items)
+    void Draw(std::shared_ptr<TPad> main_pad, std::shared_ptr<TLegend> legend,
+              std::vector<std::shared_ptr<TObject>>& plot_items)
     {
-        main_pad.SetLogx(page_opt.log_x);
-        main_pad.SetLogy(page_opt.log_y);
+        main_pad->SetLogx(page_opt.log_x);
+        main_pad->SetLogy(page_opt.log_y);
 
-        if(legend) {
-            if (data)
-                legend->AddEntry(data_histogram.get(), data_histogram->GetLegendTitle().c_str(), "PLE");
-            if (drawBKGerrors && sum_backgound_histogram)
-                legend->AddEntry(sum_backgound_histogram.get(),sum_backgound_histogram->GetLegendTitle().c_str(), "f");
-            for(const hist_ptr& signal : signal_histograms)
-                legend->AddEntry(signal.get(), signal->GetLegendTitle().c_str(), "F");
-            for(const hist_ptr& background : background_histograms)
-                legend->AddEntry(background.get(), background->GetLegendTitle().c_str(), "F");
+        std::shared_ptr<TPad> plot_pad, ratio_pad;
+
+        if(page_opt.draw_ratio) {
+            plot_pad = plotting::NewPad(draw_options::Box(0, page_opt.ratio_pad_size, 1, 1));
+            main_pad->cd();
+            ratio_pad = plotting::NewPad(draw_options::Box(0, 0, 1, page_opt.ratio_pad_size));
+            plot_items.push_back(plot_pad);
+            plot_items.push_back(ratio_pad);
+        } else {
+            plot_pad = main_pad;
         }
 
-
-
-        if (background_histograms.size()) {
-            const auto& bkg_hist = background_histograms.front();
-            stack = std::shared_ptr<THStack>(new THStack(bkg_hist->GetName(), bkg_hist->GetTitle()));
-
-            for (auto iter = background_histograms.rbegin(); iter != background_histograms.rend(); ++iter){
+        plot_pad->cd();
+        if(backgrounds.size()) {
+            auto stack = std::make_shared<THStack>("", "");
+            for (auto iter = backgrounds.rbegin(); iter != backgrounds.rend(); ++iter){
                 stack->Add(iter->get());
             }
+
             stack->Draw("HIST");
-
-            Double_t maxY = stack->GetMaximum();
-            if (data_histogram){
-                const Int_t maxBin = data_histogram->GetMaximumBin();
-                const Double_t maxData = data_histogram->GetBinContent(maxBin) + data_histogram->GetBinError(maxBin);
-                maxY = std::max(maxY, maxData);
-            }
-
-            for (const hist_ptr& signal : signal_histograms)
-                maxY = std::max(maxY,signal->GetMaximum());
-
-            stack->SetMaximum(maxY * bkg_hist->MaxYDrawScaleFactor());
-
-            const Double_t minY = page.side.use_log_scaleY ? 0.01 : 0;
-            stack->SetMinimum(minY);
-
-
-            if (draw_ratio){
-                stack->GetXaxis()->SetTitle("");
-                stack->GetXaxis()->SetLabelColor(kWhite);
-
-            }
-            else {
-                stack->GetXaxis()->SetTitle(page.side.axis_titleX.c_str());
-                stack->GetXaxis()->SetTitleOffset(1.00); //1.05
-//                stack->GetXaxis()->SetTitleSize(0.055); //0.04
-                stack->GetXaxis()->SetLabelSize(0.04f);
-                stack->GetXaxis()->SetLabelOffset(0.015f);
-//                stack->GetXaxis()->SetTitleFont(42); //62
-            }
-
-//            stack->GetYaxis()->SetTitleSize(0.055); //0.05
-            stack->GetYaxis()->SetTitleOffset(1.4f); //1.45
-            stack->GetYaxis()->SetLabelSize(0.04f);
-            stack->GetYaxis()->SetTitle(page.side.axis_titleY.c_str());
-//            stack->GetYaxis()->SetTitleFont(42); //62
-
-            if (drawBKGerrors){
-                sum_backgound_histogram->SetMarkerSize(0);
-                //new
-                // int new_idx = root_ext::CreateTransparentColor(12,0.5);
-                // sum_backgound_histogram->SetFillColor(new_idx);
-                // sum_backgound_histogram->SetFillStyle(3001);
-                // sum_backgound_histogram->SetLineWidth(0);
-                // sum_backgound_histogram->Draw("e2same");
-//                end new
-
-                  //old style for bkg uncertainties
-               sum_backgound_histogram->SetFillColor(13);
-               sum_backgound_histogram->SetFillStyle(3013);
-               sum_backgound_histogram->SetLineWidth(0);
-               sum_backgound_histogram->Draw("e2same");
-            }
+            plot_items.push_back(stack);
         }
 
-        for(const hist_ptr& signal : signal_histograms)
+        for(const auto& signal : signals)
             signal->Draw("SAME HIST");
 
-        if(data_histogram) {
-            data_histogram->SetMarkerColor(1);
-            data_histogram->SetLineColor(1);
-            data_histogram->SetFillColor(1);
-            data_histogram->SetFillStyle(0);
-            data_histogram->SetLineWidth(2);
+        std::shared_ptr<TGraphAsymmErrors> data_graph;
 
-
-            data_histogram->SetMarkerStyle(20);
-            data_histogram->SetMarkerSize(1.1f);
-            data_histogram->Draw("samepPE0");
-//            data_histogram->Draw("pE0same");
+        if(data) {
+            data_graph = plotting::HistogramToGraph(*data, page_opt.divide_by_bin_width, data->GetBlindRanges());
+            data_graph->Draw(data_opt.draw_opt.c_str());
+            plot_items.push_back(data_graph);
         }
 
-        const std::string axis_titleX = page.side.axis_titleX;
-        if (data_histogram && draw_ratio){
-            ratio_pad = std::shared_ptr<TPad>(root_ext::Adapter::NewPad(page.side.layout.ratio_pad));
-            if(page.side.use_log_scaleX)
-                ratio_pad->SetLogx();
-
-            ratio_pad->Draw();
-
-            ratio_pad->cd();
-
-
-            ratio_histogram = hist_ptr(new Histogram(*data_histogram));
-            ratio_histogram->Divide(sum_backgound_histogram.get());
-
-            ratio_histogram->GetYaxis()->SetRangeUser(0.5,1.5);
-            ratio_histogram->GetYaxis()->SetNdivisions(505);
-            ratio_histogram->GetYaxis()->SetLabelSize(0.11f);
-            ratio_histogram->GetYaxis()->SetTitleSize(0.14f);
-            ratio_histogram->GetYaxis()->SetTitleOffset(0.55f);
-            ratio_histogram->GetYaxis()->SetTitle("Obs/Bkg");
-            ratio_histogram->GetYaxis()->SetTitleFont(62);
-            ratio_histogram->GetXaxis()->SetNdivisions(510);
-            ratio_histogram->GetXaxis()->SetTitle(axis_titleX.c_str());
-            ratio_histogram->GetXaxis()->SetTitleSize(0.1f);
-            ratio_histogram->GetXaxis()->SetTitleOffset(0.98f);
-            ratio_histogram->GetXaxis()->SetTitleFont(62);
-            //ratio_histogram->GetXaxis()->SetLabelColor(kBlack);
-            ratio_histogram->GetXaxis()->SetLabelSize(0.1f);
-            ratio_histogram->SetMarkerStyle(20);
-            ratio_histogram->SetMarkerColor(1);
-            ratio_histogram->SetMarkerSize(1);
-
-            ratio_histogram->Draw("E0P");
-
-            TLine* line = new TLine();
-            line->SetLineStyle(3);
-            line->DrawLine(ratio_histogram->GetXaxis()->GetXmin(), 1, ratio_histogram->GetXaxis()->GetXmax(), 1);
-            TLine* line1 = new TLine();
-            line1->SetLineStyle(3);
-            line1->DrawLine(ratio_histogram->GetXaxis()->GetXmin(), 1.2, ratio_histogram->GetXaxis()->GetXmax(), 1.2);
-            TLine* line2 = new TLine();
-            line2->SetLineStyle(3);
-            line2->DrawLine(ratio_histogram->GetXaxis()->GetXmin(), 0.8, ratio_histogram->GetXaxis()->GetXmax(), 0.8);
-            ratio_pad->SetTopMargin(0.04f);
-            ratio_pad->SetBottomMargin(0.3f);
-            ratio_pad->Update();
+        if(legend) {
+            if(data_graph)
+                legend->AddEntry(data_graph.get(), data->GetLegendTitle().c_str(), data_opt.legend_style.c_str());
+            for(const auto& signal : signals)
+                legend->AddEntry(signal.get(), signal->GetLegendTitle().c_str(), signal_opt.legend_style.c_str());
+            for(const auto& background : backgrounds)
+                legend->AddEntry(background.get(), background->GetLegendTitle().c_str(), bkg_opt.legend_style.c_str());
         }
     }
 

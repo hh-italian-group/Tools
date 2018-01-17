@@ -55,6 +55,7 @@ struct Page {
     bool draw_ratio{true};
     float y_ratio_label_size{.04f};
     double max_ratio{-1}, allowed_ratio_margin{0.2};
+    float ratio_pad_size{.1f};
 
     double zero_threshold{-std::numeric_limits<double>::infinity()};
     bool blind{false};
@@ -81,6 +82,9 @@ struct Page {
 struct PositionedElement {
     Point pos{.5f, .5f};
     std::string pos_ref;
+    PositionedElement() {}
+    PositionedElement(const PositionedElement&) = default;
+    PositionedElement& operator=(const PositionedElement&) = default;
     virtual ~PositionedElement() {}
 };
 
@@ -124,7 +128,7 @@ struct Histogram {
     std::string unc_legend_style;
     int unc_fill_style{3013};
     Color fill_color{kWhite}, line_color{kBlack}, unc_fill_color{kBlack};
-    std::string unc_draw_opt{"e2"};
+    std::string draw_opt, unc_draw_opt{"e2"};
     short line_width{2};
 
     Histogram() {}

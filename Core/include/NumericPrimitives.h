@@ -646,6 +646,23 @@ private:
     RangeVec ranges;
 };
 
+template<typename Range>
+std::ostream& operator<<(std::ostream& s, const MultiRange<Range>& r)
+{
+    s << r.ToString();
+    return s;
+}
+
+template<typename Range>
+std::istream& operator>>(std::istream& s, MultiRange<Range>& r)
+{
+    std::string str;
+    std::getline(s, str);
+    r = MultiRange<Range>::Parse(str);
+    return s;
+}
+
+
 struct NumericalExpression {
     NumericalExpression() : _value(0) {}
     NumericalExpression(const std::string& expression)

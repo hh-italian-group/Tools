@@ -20,17 +20,14 @@ public:
     using LegendOptions = draw_options::Legend;
     using LabelOptions = draw_options::Text;
     using PosElem = draw_options::PositionedElement;
-    using PosElemMap = std::vector<std::string, const PosElem*>;
+    using PosElemMap = std::map<std::string, const PosElem*>;
     using Point = draw_options::Point;
     using Size = draw_options::Size;
 
     PdfPrinter(const std::string& _output_file_name, const draw_options::ItemCollection& opt_items,
-               const std::string& page_opt_name) :
-        output_file_name(_output_file_name)
+               PageOptions& _page_opt) :
+        page_opt(_page_opt), output_file_name(_output_file_name)
     {
-        if(!opt_items.count(page_opt_name))
-            throw exception("Page draw options '%1%' not found.") % page_opt_name;
-        page_opt = PageOptions(opt_items.at(page_opt_name));
         canvas = plotting::NewCanvas(page_opt.canvas_size);
 
         gStyle->SetPaperSize(page_opt.paper_size.x(), page_opt.paper_size.y());
@@ -114,7 +111,7 @@ public:
             legend->SetTextSize(legend_opt->text_size);
             legend->SetTextFont(legend_opt->font.code());
         }
-        desc.Draw(*main_pad, legend, plot_items);
+        desc.Draw(main_pad, legend, plot_items);
         legend->Draw("same");
 
         for(const auto& label_opt_entry : label_opts) {
@@ -150,7 +147,7 @@ public:
         else if(has_first_page && is_last)
             output_name << ")";
 
-        root_ext::WarningSuppressor ws(kWarning);
+        WarningSuppressor ws(kWarning);
         canvas->Print(output_name.str().c_str(), print_options.str().c_str());
         has_first_page = true;
         has_last_page = is_last;

@@ -15,6 +15,7 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #include <TLegend.h>
 #include <TColor.h>
 #include <TRatioPlot.h>
+#include <TGraphAsymmErrors.h>
 
 #include "AnalysisTools/Core/include/RootExt.h"
 #include "AnalysisTools/Core/include/NumericPrimitives.h"
