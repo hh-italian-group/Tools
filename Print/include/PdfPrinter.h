@@ -41,6 +41,7 @@ public:
         gStyle->SetTickLength(page_opt.tick_length_xy.y(), "Y");
         gStyle->SetNdivisions(page_opt.n_div_xy.x(), "X");
         gStyle->SetNdivisions(page_opt.n_div_xy.y(), "Y");
+        gStyle->SetOptStat(page_opt.opt_stat);
 
         canvas->SetFillColor(page_opt.canvas_color.GetColor_t());
         canvas->SetBorderSize(page_opt.canvas_border_size);
@@ -100,7 +101,8 @@ public:
             canvas->cd();
             ratio_pad = plotting::NewPad(page_opt.GetRatioPadBox());
         }
-        plotting::SetMargins(*main_pad, page_opt.margins, ratio_pad.get());
+        plotting::SetMargins(*main_pad, page_opt.margins, ratio_pad.get(), page_opt.GetRatioPadSizeSF(),
+                             page_opt.ratio_pad_spacing / page_opt.ratio_pad_size);
 
         std::vector<std::shared_ptr<TObject>> plot_items;
         std::shared_ptr<TLegend> legend;
@@ -117,16 +119,19 @@ public:
             legend->SetTextFont(legend_opt->font.code());
         }
 
+        if(ratio_pad) {
+            ratio_pad->Draw();
+            ratio_pad->SetTitle("");
+        }
+
         main_pad->Draw();
         main_pad->cd();
         main_pad->SetTitle("");
 
         desc.Draw(main_pad, ratio_pad, legend, plot_items);
-        main_pad->Draw();
         canvas->cd();
         if(legend)
             legend->Draw();
-        canvas->cd();
         for(const auto& label_opt_entry : label_opts)
             DrawLabel(label_opt_entry.first, label_opt_entry.second, plot_items);
 

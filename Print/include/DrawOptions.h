@@ -36,25 +36,23 @@ struct Page {
     Color canvas_color{kWhite};
     short canvas_border_size{10};
     short canvas_border_mode{0};
-    int palette{1};
+    int palette{1}, opt_stat{0};
     float end_error_size{2};
     Flag2D grid_xy{false, false}, tick_xy{true, true};
     Point tick_length_xy{.03f, .03f};
     PointI n_div_xy{510, 510};
-    bool draw_title{false};
-    Font title_font{42};
-    Color title_color{kBlack};
-    double title_size{.05};
-    Point axis_title_sizes{.005f, .005f}, axes_title_offsets{1.f, 1.f},
+    Point axis_title_sizes{.005f, .005f}, axis_title_offsets{1.f, 1.f},
           axis_label_sizes{.04f, .04f}, axis_label_offsets{.015f, .005f};
 
-    std::string title, x_title, y_title;
+    std::string x_title, y_title;
     bool divide_by_bin_width{false};
     bool log_x{false}, log_y{false};
     double y_min_sf{1}, y_max_sf{1.2};
 
     bool draw_ratio{true};
-    float y_ratio_label_size{.04f};
+    std::string ratio_y_title{"Ratio"};
+    float ratio_y_title_size{.005f}, ratio_y_title_offset{1.f}, ratio_y_label_size{.04f}, ratio_y_label_offset{.005f};
+    int ratio_n_div_y{510};
     double max_ratio{-1}, allowed_ratio_margin{0.2};
     float ratio_pad_size{.1f}, ratio_pad_spacing{.01f};
 
@@ -69,11 +67,11 @@ struct Page {
     explicit Page(const Item& opt)
     {
         READ_ALL(canvas_size, main_pad, margins, paper_size, canvas_color, canvas_border_size, canvas_border_mode,
-                 palette, end_error_size, grid_xy, tick_xy, tick_length_xy, n_div_xy, draw_title, title_font,
-                 title_color, title_size, axis_title_sizes, axes_title_offsets, axis_label_sizes, axis_label_offsets,
-                 title, x_title, y_title, divide_by_bin_width, log_x, log_y, y_min_sf, y_max_sf, draw_ratio,
-                 y_ratio_label_size, max_ratio, allowed_ratio_margin, ratio_pad_size, ratio_pad_spacing, zero_threshold,
-                 blind)
+                 palette, opt_stat, end_error_size, grid_xy, tick_xy, tick_length_xy, n_div_xy, axis_title_sizes,
+                 axis_title_offsets, axis_label_sizes, axis_label_offsets, x_title, y_title, divide_by_bin_width, log_x,
+                 log_y, y_min_sf, y_max_sf, draw_ratio, ratio_y_title, ratio_y_title_size, ratio_y_title_offset,
+                 ratio_y_label_size, ratio_y_label_offset, ratio_n_div_y, max_ratio, allowed_ratio_margin,
+                 ratio_pad_size, ratio_pad_spacing, zero_threshold, blind)
 
         opt.Read("legend", legend_opt);
         std::string text_boxes_str;
@@ -85,9 +83,14 @@ struct Page {
     {
         const float left_bottom_x = main_pad.left_bottom_x();
         const float right_top_x = main_pad.right_top_x();
-        const float right_top_y = main_pad.left_bottom_y() - ratio_pad_spacing;
+        const float right_top_y = main_pad.left_bottom_y();
         const float left_bottom_y = right_top_y - ratio_pad_size;
         return Box(left_bottom_x, left_bottom_y, right_top_x, right_top_y);
+    }
+
+    float GetRatioPadSizeSF() const
+    {
+        return (main_pad.right_top_y() - main_pad.left_bottom_y()) / ratio_pad_size;
     }
 };
 
@@ -147,23 +150,29 @@ struct Text : PositionedElement {
 };
 
 struct Histogram {
-    short fill_style{0}, line_style{2};
-    std::string legend_style{"f"};
+    short fill_style{0};
+    Color fill_color{kWhite};
 
-    bool draw_unc{false};
-    std::string unc_legend_title;
-    std::string unc_legend_style;
-    int unc_fill_style{3013};
-    Color fill_color{kWhite}, line_color{kBlack}, unc_fill_color{kBlack};
-    std::string draw_opt, unc_draw_opt{"e2"};
-    short line_width{2};
+    short line_style{2}, line_width{2};
+    Color line_color{kBlack};
+
+    short marker_style{20};
+    float marker_size{.0f};
+    Color marker_color{kBlack};
+
+    std::string legend_title, legend_style{"f"};
+    std::string draw_opt{"HIST"}, unc_hist;
+
+    bool blind{false};
 
     Histogram() {}
     explicit Histogram(const Item& opt)
     {
-        READ_ALL(fill_style, line_style, legend_style, draw_unc, unc_legend_title, unc_legend_style, unc_fill_style,
-                 fill_color, line_color, unc_fill_color, draw_opt, unc_draw_opt, line_width);
+        READ_ALL(fill_style, fill_color, line_style, line_width, line_color, marker_style, marker_size, marker_color,
+                 legend_title, legend_style, draw_opt, unc_hist, blind);
     }
+
+    bool DrawUnc() const { return !unc_hist.empty(); }
 };
 
 

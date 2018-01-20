@@ -126,7 +126,8 @@ std::shared_ptr<TCanvas> NewCanvas(const Size<T, 2>& size)
 }
 
 template<typename T>
-void SetMargins(TPad& pad, const MarginBox<T>& box, TPad* ratio_pad = nullptr)
+void SetMargins(TPad& pad, const MarginBox<T>& box, TPad* ratio_pad = nullptr, float ratio_pad_y_size_sf = 1.f,
+                float ratio_pad_top_margin = 0.f)
 {
     pad.SetLeftMargin(box.left());
     pad.SetRightMargin(box.right());
@@ -135,7 +136,9 @@ void SetMargins(TPad& pad, const MarginBox<T>& box, TPad* ratio_pad = nullptr)
     if(ratio_pad) {
         ratio_pad->SetLeftMargin(box.left());
         ratio_pad->SetRightMargin(box.right());
-        ratio_pad->SetBottomMargin(box.bottom());
+        ratio_pad->SetBottomMargin(box.bottom() * ratio_pad_y_size_sf);
+        ratio_pad->SetTopMargin(ratio_pad_top_margin);
+        pad.SetBottomMargin(0);
     } else {
         pad.SetBottomMargin(box.bottom());
     }
@@ -178,6 +181,41 @@ std::shared_ptr<TGraphAsymmErrors> HistogramToGraph(const TH1& hist, bool divide
     return std::make_shared<TGraphAsymmErrors>(static_cast<int>(n), x.data(), y.data(), exl.data(), exh.data(),
                                                eyl.data(), eyh.data());
 }
+
+template<typename Hist>
+std::shared_ptr<TGraphAsymmErrors> CreateRatioGraph(const TGraphAsymmErrors& graph, const Hist& hist)
+{
+    auto ratio_graph = std::make_shared<TGraphAsymmErrors>(graph);
+    for(int i = 0; i < graph.GetN(); ++i) {
+        const double x = graph.GetX()[i];
+        const double y = graph.GetY()[i];
+        const double ey_low = graph.GetEYlow()[i];
+        const double ey_high = graph.GetEYhigh()[i];
+        const int bin = hist.FindFixBin(x);
+        const double hist_y = hist.GetBinContent(bin);
+        ratio_graph->GetY()[i] = y / hist_y;
+        ratio_graph->GetEYlow()[i] = ey_low / hist_y;
+        ratio_graph->GetEYhigh()[i] = ey_high / hist_y;
+    }
+    return ratio_graph;
+}
+
+template<typename Hist>
+std::shared_ptr<Hist> CreateNormalizedUncertaintyHistogram(const Hist& hist)
+{
+    auto norm_hist = std::make_shared<Hist>(hist);
+    for(int i = 1; i <= hist.GetNbinsX(); ++i) {
+        const double y = hist.GetBinContent(i);
+        const double ey = hist.GetBinError(i);
+        norm_hist->SetBinContent(i, 1.);
+        if(ey == 0 && y == 0)
+            norm_hist->SetBinError(i, 0);
+        else
+            norm_hist->SetBinError(i, ey / y);
+    }
+    return norm_hist;
+}
+
 
 } // namespace plotting
 } // root_ext
