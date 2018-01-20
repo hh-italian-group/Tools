@@ -24,8 +24,9 @@ using Box = ::root_ext::Box<float>;
 using Angle = ::analysis::Angle<2>;
 using Flag2D = ::root_ext::Point<bool, 2, false>;
 
-#define READ(r, opt, name) opt.Read(#name, name);
-#define READ_ALL(...) BOOST_PP_SEQ_FOR_EACH(READ, opt, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
+#define READ(name) opt.Read(#name, name);
+#define READ_VAR(r, opt, name) READ(name)
+#define READ_ALL(...) BOOST_PP_SEQ_FOR_EACH(READ_VAR, opt, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
 struct Page {
     SizeI canvas_size{600, 600};
@@ -38,7 +39,7 @@ struct Page {
     int palette{1};
     float end_error_size{2};
     Flag2D grid_xy{false, false}, tick_xy{true, true};
-    Size tick_length_xy{.03f, .03f};
+    Point tick_length_xy{.03f, .03f};
     PointI n_div_xy{510, 510};
     bool draw_title{false};
     Font title_font{42};
@@ -55,7 +56,7 @@ struct Page {
     bool draw_ratio{true};
     float y_ratio_label_size{.04f};
     double max_ratio{-1}, allowed_ratio_margin{0.2};
-    float ratio_pad_size{.1f};
+    float ratio_pad_size{.1f}, ratio_pad_spacing{.01f};
 
     double zero_threshold{-std::numeric_limits<double>::infinity()};
     bool blind{false};
@@ -64,42 +65,59 @@ struct Page {
     std::vector<std::string> text_boxes_opt;
 
     Page() {}
+
     explicit Page(const Item& opt)
     {
         READ_ALL(canvas_size, main_pad, margins, paper_size, canvas_color, canvas_border_size, canvas_border_mode,
                  palette, end_error_size, grid_xy, tick_xy, tick_length_xy, n_div_xy, draw_title, title_font,
                  title_color, title_size, axis_title_sizes, axes_title_offsets, axis_label_sizes, axis_label_offsets,
                  title, x_title, y_title, divide_by_bin_width, log_x, log_y, y_min_sf, y_max_sf, draw_ratio,
-                 y_ratio_label_size, max_ratio, allowed_ratio_margin, zero_threshold, blind)
+                 y_ratio_label_size, max_ratio, allowed_ratio_margin, ratio_pad_size, ratio_pad_spacing, zero_threshold,
+                 blind)
 
         opt.Read("legend", legend_opt);
         std::string text_boxes_str;
         opt.Read("text_boxes", text_boxes_str);
         text_boxes_opt = ::analysis::SplitValueList(text_boxes_str, false, ", \t", true);
     }
+
+    Box GetRatioPadBox() const
+    {
+        const float left_bottom_x = main_pad.left_bottom_x();
+        const float right_top_x = main_pad.right_top_x();
+        const float right_top_y = main_pad.left_bottom_y() - ratio_pad_spacing;
+        const float left_bottom_y = right_top_y - ratio_pad_size;
+        return Box(left_bottom_x, left_bottom_y, right_top_x, right_top_y);
+    }
 };
 
 struct PositionedElement {
     Point pos{.5f, .5f};
     std::string pos_ref;
+
     PositionedElement() {}
     PositionedElement(const PositionedElement&) = default;
     PositionedElement& operator=(const PositionedElement&) = default;
     virtual ~PositionedElement() {}
+
+    PositionedElement(const Item& opt)
+    {
+        READ_ALL(pos, pos_ref);
+    }
 };
 
 struct Legend : PositionedElement {
     Size size{.25f, .25f};
     Color fill_color{kWhite};
     short fill_style{0};
-    float border_size{0};
+    int border_size{0};
     float text_size{.026f};
     Font font{42};
 
     Legend() {}
-    explicit Legend(const Item& opt)
+    explicit Legend(const Item& opt) : PositionedElement(opt)
     {
-        READ_ALL(pos, pos_ref, size, fill_color, fill_style, border_size, text_size, font)
+        READ_ALL(size, fill_color, fill_style, border_size, text_size, font)
     }
 };
 
@@ -109,13 +127,22 @@ struct Text : PositionedElement {
     float line_spacing{0.3f};
     Angle angle{0};
     Font font;
-    TextAlign align{TextAlign::LeftCenter};
-    Color color;
+    TextAlign align{TextAlign::LeftTop};
+    Color color{kBlack};
 
     Text() {}
-    explicit Text(const Item& opt)
+    explicit Text(const Item& opt) : PositionedElement(opt)
     {
-        READ_ALL(pos, pos_ref, text, angle, font, align);
+        READ_ALL(text_size, line_spacing, angle, font, align, color);
+        std::string text_str;
+        opt.Read("text", text_str);
+        SetText(text_str);
+    }
+
+    void SetText(std::string text_str)
+    {
+        boost::replace_all(text_str, "\\n", "\n");
+        text = ::analysis::SplitValueList(text_str, true, "\n", false);
     }
 };
 
@@ -134,12 +161,14 @@ struct Histogram {
     Histogram() {}
     explicit Histogram(const Item& opt)
     {
-        READ_ALL(fill_style, legend_style, draw_unc, unc_legend_title, unc_legend_style, unc_fill_style, unc_fill_color,
-                 unc_draw_opt)
+        READ_ALL(fill_style, line_style, legend_style, draw_unc, unc_legend_title, unc_legend_style, unc_fill_style,
+                 fill_color, line_color, unc_fill_color, draw_opt, unc_draw_opt, line_width);
     }
 };
 
+
 #undef READ_ALL
+#undef READ_VAR
 #undef READ
 
 } // namespace draw_options

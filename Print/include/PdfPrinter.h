@@ -46,8 +46,6 @@ public:
         canvas->SetBorderSize(page_opt.canvas_border_size);
         canvas->SetBorderMode(page_opt.canvas_border_mode);
 
-        main_pad = plotting::NewPad(page_opt.main_pad);
-        plotting::SetMargins(*main_pad, page_opt.margins);
         left_top_origin = Point(page_opt.main_pad.left_bottom_x() + page_opt.margins.left(),
                                 page_opt.main_pad.right_top_y() - page_opt.margins.top());
         right_top_origin = Point(page_opt.main_pad.right_top_x() - page_opt.margins.right(),
@@ -92,15 +90,22 @@ public:
         if(is_last && has_last_page)
             throw exception("Last page has already been printed.");
 
-        canvas->cd();
         canvas->Clear();
         canvas->SetTitle(title.c_str());
-        main_pad->Draw();
-        main_pad->cd();
+        canvas->cd();
+
+        auto main_pad = plotting::NewPad(page_opt.main_pad);
+        std::shared_ptr<TPad> ratio_pad;
+        if(page_opt.draw_ratio) {
+            canvas->cd();
+            ratio_pad = plotting::NewPad(page_opt.GetRatioPadBox());
+        }
+        plotting::SetMargins(*main_pad, page_opt.margins, ratio_pad.get());
 
         std::vector<std::shared_ptr<TObject>> plot_items;
         std::shared_ptr<TLegend> legend;
         if(legend_opt) {
+            canvas->cd();
             const auto legend_pos = GetAbsolutePosition(page_opt.legend_opt);
             legend = std::make_shared<TLegend>(legend_pos.x(), legend_pos.y(),
                                                legend_pos.x() + legend_opt->size.x() * inner_size.x(),
@@ -111,33 +116,21 @@ public:
             legend->SetTextSize(legend_opt->text_size);
             legend->SetTextFont(legend_opt->font.code());
         }
-        desc.Draw(main_pad, legend, plot_items);
-        legend->Draw("same");
-
-        for(const auto& label_opt_entry : label_opts) {
-            const auto& label_name = label_opt_entry.first;
-            const LabelOptions& label_opt = label_opt_entry.second;
-            auto pos = GetAbsolutePosition(label_name);
-            for(const auto& line : label_opt.text) {
-                std::shared_ptr<TLatex> latex(new TLatex(pos.x(), pos.y(), line.c_str()));
-                latex->SetNDC();
-                latex->SetTextSize(label_opt.text_size);
-                latex->SetTextFont(label_opt.font.code());
-                latex->SetTextAlign(static_cast<Short_t>(label_opt.align));
-                latex->SetTextAngle(static_cast<float>(label_opt.angle.value_degrees()));
-                latex->SetTextColor(label_opt.color.GetColor_t());
-                latex->Draw("same");
-                plot_items.push_back(latex);
-                const float alpha = static_cast<float>(label_opt.angle.value());
-                const float cos = std::cos(alpha), sin = std::sin(alpha);
-                const Point shift(0, -(1 + label_opt.line_spacing) * static_cast<float>(latex->GetYsize()));
-                pos = pos + Point(shift.x() * cos + shift.y() * sin, - shift.x() * sin + shift.y() * cos);
-            }
-        }
 
         main_pad->Draw();
-        if(main_pad != canvas)
-            canvas->Draw();
+        main_pad->cd();
+        main_pad->SetTitle("");
+
+        desc.Draw(main_pad, ratio_pad, legend, plot_items);
+        main_pad->Draw();
+        canvas->cd();
+        if(legend)
+            legend->Draw();
+        canvas->cd();
+        for(const auto& label_opt_entry : label_opts)
+            DrawLabel(label_opt_entry.first, label_opt_entry.second, plot_items);
+
+        canvas->Draw();
 
         std::ostringstream print_options, output_name;
         print_options << "Title:" << title;
@@ -180,9 +173,30 @@ private:
         if(positioned_elements.count(elem.pos_ref)) {
             previous_names.insert(name);
             const auto& ref_position = GetAbsolutePosition(elem.pos_ref, previous_names);
-            return ref_position + elem.position * inner_size;
+            return ref_position + elem.pos * inner_size;
         }
         throw analysis::exception("Unknown position reference '%1%'.") % elem.pos_ref;
+    }
+
+    void DrawLabel(const std::string& label_name, const LabelOptions& label_opt,
+                   std::vector<std::shared_ptr<TObject>>& plot_items) const
+    {
+        auto pos = GetAbsolutePosition(label_name);
+        for(const auto& line : label_opt.text) {
+            std::shared_ptr<TLatex> latex(new TLatex(pos.x(), pos.y(), line.c_str()));
+            latex->SetNDC();
+            latex->SetTextSize(label_opt.text_size);
+            latex->SetTextFont(label_opt.font.code());
+            latex->SetTextAlign(static_cast<Short_t>(label_opt.align));
+            latex->SetTextAngle(static_cast<float>(label_opt.angle.value_degrees()));
+            latex->SetTextColor(label_opt.color.GetColor_t());
+            latex->Draw("same");
+            plot_items.push_back(latex);
+            const float alpha = static_cast<float>(label_opt.angle.value());
+            const float cos = std::cos(alpha), sin = std::sin(alpha);
+            const Point shift(0, -(1 + label_opt.line_spacing) * static_cast<float>(latex->GetYsize()));
+            pos = pos + Point(shift.x() * cos + shift.y() * sin, - shift.x() * sin + shift.y() * cos);
+        }
     }
 
 private:
@@ -190,7 +204,6 @@ private:
     boost::optional<LegendOptions> legend_opt;
     std::map<std::string, LabelOptions> label_opts;
     std::shared_ptr<TCanvas> canvas;
-    std::shared_ptr<TPad> main_pad;
     std::string output_file_name;
     bool has_first_page{false}, has_last_page{false};
     PosElemMap positioned_elements;

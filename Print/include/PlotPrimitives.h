@@ -16,6 +16,9 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 
 namespace root_ext {
 
+using ::analysis::operator<<;
+using ::analysis::operator>>;
+
 template<typename T, size_t n_dim, bool positively_defined = false>
 struct Point;
 
@@ -37,17 +40,23 @@ struct Point<T, 1, positively_defined> {
 
     const T& x() const { return _x; }
     operator T() const { return _x; }
-    Point<T, 1, positively_defined> operator+(const Point<T, 1, positively_defined>& other) const
+
+    template<bool pos_def>
+    Point<T, 1, positively_defined && pos_def> operator+(const Point<T, 1, pos_def>& other) const
     {
-        return Point<T, 1, positively_defined>(x() + other.x());
+        return Point<T, 1, positively_defined && pos_def>(x() + other.x());
     }
-    Point<T, 1, positively_defined> operator-(const Point<T, 1, positively_defined>& other) const
+
+    template<bool pos_def>
+    Point<T, 1, positively_defined && pos_def> operator-(const Point<T, 1, pos_def>& other) const
     {
-        return Point<T, 1, positively_defined>(x() - other.x());
+        return Point<T, 1, positively_defined && pos_def>(x() - other.x());
     }
-    Point<T, 1, positively_defined> operator*(const Point<T, 1, positively_defined>& other) const
+
+    template<bool pos_def>
+    Point<T, 1, positively_defined && pos_def> operator*(const Point<T, 1, pos_def>& other) const
     {
-        return Point<T, 1, positively_defined>(x() * other.x());
+        return Point<T, 1, positively_defined && pos_def>(x() * other.x());
     }
 
     static bool IsValid(const T& x) { return !positively_defined || x >= 0; }
@@ -84,21 +93,27 @@ struct Point<T, 2, positively_defined> {
 
     const T& x() const { return _x; }
     const T& y() const { return _y; }
-    Point<T, 2, positively_defined> operator+(const Point<T, 2, positively_defined>& other) const
+
+    template<bool pos_def>
+    Point<T, 2, positively_defined && pos_def> operator+(const Point<T, 2, pos_def>& other) const
     {
-        return Point<T, 2, positively_defined>(x() + other.x(), y() + other.y());
-    }
-    Point<T, 2, positively_defined> operator-(const Point<T, 2, positively_defined>& other) const
-    {
-        return Point<T, 2, positively_defined>(x() - other.x(), y() - other.y());
-    }
-    Point<T, 2, positively_defined> operator*(const Point<T, 2, positively_defined>& other) const
-    {
-        return Point<T, 2, positively_defined>(x() * other.x(), y() * other.y());
+        return Point<T, 2, positively_defined && pos_def>(x() + other.x(), y() + other.y());
     }
 
-    Point<T, 2, positively_defined> flip_x() const { return Point<T, 2, positively_defined>(-x(), y()); }
-    Point<T, 2, positively_defined> flip_y() const { return Point<T, 2, positively_defined>(x(), -y()); }
+    template<bool pos_def>
+    Point<T, 2, positively_defined && pos_def> operator-(const Point<T, 2, pos_def>& other) const
+    {
+        return Point<T, 2, positively_defined && pos_def>(x() - other.x(), y() - other.y());
+    }
+
+    template<bool pos_def>
+    Point<T, 2, positively_defined && pos_def> operator*(const Point<T, 2, pos_def>& other) const
+    {
+        return Point<T, 2, positively_defined && pos_def>(x() * other.x(), y() * other.y());
+    }
+
+    Point<T, 2, false> flip_x() const { return Point<T, 2, false>(-x(), y()); }
+    Point<T, 2, false> flip_y() const { return Point<T, 2, false>(x(), -y()); }
 
     static bool IsValid(const T& x, const T& y) { return !positively_defined || (x >= 0 && y >= 0); }
 

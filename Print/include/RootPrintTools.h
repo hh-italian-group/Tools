@@ -126,12 +126,19 @@ std::shared_ptr<TCanvas> NewCanvas(const Size<T, 2>& size)
 }
 
 template<typename T>
-void SetMargins(TPad& pad, const MarginBox<T>& box)
+void SetMargins(TPad& pad, const MarginBox<T>& box, TPad* ratio_pad = nullptr)
 {
     pad.SetLeftMargin(box.left());
-    pad.SetBottomMargin(box.bottom());
     pad.SetRightMargin(box.right());
     pad.SetTopMargin(box.top());
+
+    if(ratio_pad) {
+        ratio_pad->SetLeftMargin(box.left());
+        ratio_pad->SetRightMargin(box.right());
+        ratio_pad->SetBottomMargin(box.bottom());
+    } else {
+        pad.SetBottomMargin(box.bottom());
+    }
 }
 
 template<typename T>

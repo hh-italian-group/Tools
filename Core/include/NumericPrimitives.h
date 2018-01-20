@@ -81,7 +81,7 @@ struct Range {
 
     ConstRefType min() const { return _min; }
     ConstRefType max() const { return _max; }
-    T size() const { return detail::RangeSize<T>::size(min(), max()); }
+    T size() const { return detail::RangeSize<T>::size(min(), max(), boundaries()); }
 
     RangeBoundaries boundaries() const { return _boundaries; }
     bool min_included() const
@@ -461,7 +461,7 @@ std::ostream& operator<<(std::ostream& s, const Angle<n_pi_per_period_num, n_pi_
 }
 
 template<unsigned n_pi_per_period_num, unsigned n_pi_per_period_denom>
-std::istream& operator>>(std::istream& s, const Angle<n_pi_per_period_num, n_pi_per_period_denom>& a)
+std::istream& operator>>(std::istream& s, Angle<n_pi_per_period_num, n_pi_per_period_denom>& a)
 {
     double value;
     s >> value;

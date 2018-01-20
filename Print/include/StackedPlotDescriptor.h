@@ -61,25 +61,13 @@ public:
 
     bool HasPrintableContent() const { return signals.size() || backgrounds.size() || data; }
 
-    void Draw(std::shared_ptr<TPad> main_pad, std::shared_ptr<TLegend> legend,
+    void Draw(std::shared_ptr<TPad> main_pad, std::shared_ptr<TPad> /*ratio_pad*/, std::shared_ptr<TLegend> legend,
               std::vector<std::shared_ptr<TObject>>& plot_items)
     {
         main_pad->SetLogx(page_opt.log_x);
         main_pad->SetLogy(page_opt.log_y);
 
-        std::shared_ptr<TPad> plot_pad, ratio_pad;
-
-        if(page_opt.draw_ratio) {
-            plot_pad = plotting::NewPad(draw_options::Box(0, page_opt.ratio_pad_size, 1, 1));
-            main_pad->cd();
-            ratio_pad = plotting::NewPad(draw_options::Box(0, 0, 1, page_opt.ratio_pad_size));
-            plot_items.push_back(plot_pad);
-            plot_items.push_back(ratio_pad);
-        } else {
-            plot_pad = main_pad;
-        }
-
-        plot_pad->cd();
+        main_pad->cd();
         if(backgrounds.size()) {
             auto stack = std::make_shared<THStack>("", "");
             for (auto iter = backgrounds.rbegin(); iter != backgrounds.rend(); ++iter){
@@ -119,6 +107,7 @@ private:
         page_opt.y_max_sf = hist.MaxYDrawScaleFactor();
         page_opt.x_title = hist.GetXTitle();
         page_opt.y_title = hist.GetYTitle();
+        page_opt.divide_by_bin_width = hist.NeedToDivideByBinWidth();
     }
 
     HistPtr PrepareHistogram(const Hist& original_histogram, const HistOptions& opt, const std::string& legend_title,
