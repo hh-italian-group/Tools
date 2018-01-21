@@ -47,13 +47,15 @@ struct Page {
     std::string x_title, y_title;
     bool divide_by_bin_width{false};
     bool log_x{false}, log_y{false};
-    double y_min_sf{1}, y_max_sf{1.2};
+    double y_min_sf{1}, y_max_sf{1.2}, y_min_log{0.001};
+    boost::optional<double> y_min;
 
     bool draw_ratio{true};
     std::string ratio_y_title{"Ratio"};
     float ratio_y_title_size{.005f}, ratio_y_title_offset{1.f}, ratio_y_label_size{.04f}, ratio_y_label_offset{.005f};
     int ratio_n_div_y{510};
-    double max_ratio{-1}, allowed_ratio_margin{0.2};
+    bool ratio_log_y{false};
+    double max_ratio{-1}, allowed_ratio_margin{0.2}, ratio_y_min_sf{0.9}, ratio_y_max_sf{1.1}, ratio_y_min_log{0.001};
     float ratio_pad_size{.1f}, ratio_pad_spacing{.01f};
 
     double zero_threshold{-std::numeric_limits<double>::infinity()};
@@ -69,14 +71,17 @@ struct Page {
         READ_ALL(canvas_size, main_pad, margins, paper_size, canvas_color, canvas_border_size, canvas_border_mode,
                  palette, opt_stat, end_error_size, grid_xy, tick_xy, tick_length_xy, n_div_xy, axis_title_sizes,
                  axis_title_offsets, axis_label_sizes, axis_label_offsets, x_title, y_title, divide_by_bin_width, log_x,
-                 log_y, y_min_sf, y_max_sf, draw_ratio, ratio_y_title, ratio_y_title_size, ratio_y_title_offset,
-                 ratio_y_label_size, ratio_y_label_offset, ratio_n_div_y, max_ratio, allowed_ratio_margin,
-                 ratio_pad_size, ratio_pad_spacing, zero_threshold, blind)
+                 log_y, y_min_sf, y_max_sf, y_min_log, draw_ratio, ratio_y_title, ratio_y_title_size,
+                 ratio_y_title_offset, ratio_y_label_size, ratio_y_label_offset, ratio_n_div_y, ratio_log_y, max_ratio,
+                 allowed_ratio_margin, ratio_y_min_sf, ratio_y_max_sf, ratio_y_min_log, ratio_pad_size,
+                 ratio_pad_spacing, zero_threshold, blind)
 
         opt.Read("legend", legend_opt);
         std::string text_boxes_str;
         opt.Read("text_boxes", text_boxes_str);
         text_boxes_opt = ::analysis::SplitValueList(text_boxes_str, false, ", \t", true);
+        if(opt.Has("y_min"))
+            y_min = opt.Get<double>("y_min");
     }
 
     Box GetRatioPadBox() const

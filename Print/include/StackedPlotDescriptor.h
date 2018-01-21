@@ -49,8 +49,8 @@ public:
     void AddSignalHistogram(const Hist& original_hist, const std::string& legend_title, const Color& color,
                             double scale_factor)
     {
-        auto hist = PrepareHistogram(original_hist, signal_opt, legend_title, color, signal_opt.fill_color, false);
-        hist->Scale(scale_factor);
+        auto hist = PrepareHistogram(original_hist, signal_opt, legend_title, color, signal_opt.fill_color, false,
+                                     scale_factor);
         signals.push_back(hist);
     }
 
@@ -58,6 +58,14 @@ public:
     {
         auto hist = PrepareHistogram(original_hist, bkg_opt, legend_title, bkg_opt.line_color, color, false);
         backgrounds.push_back(hist);
+        if(bkg_sum) {
+            bkg_sum->Add(hist.get(), 1.);
+        } else {
+            bkg_sum = std::make_shared<Hist>(*hist);
+            if(bkg_unc_opt)
+                ApplyHistOptionsEx(*bkg_sum, *bkg_unc_opt);
+        }
+        range_tuner.Add(*bkg_sum, false, true);
     }
 
     void AddDataHistogram(const Hist& original_hist, const std::string& legend_title)
@@ -77,62 +85,69 @@ public:
         main_pad->cd();
 
         const bool has_ratio = ratio_pad.get() != nullptr;
-        bool first_draw = true;
-        HistPtr bkg_sum_hist;
+        if(page_opt.y_min)
+            range_tuner.y_min = *page_opt.y_min;
+        auto frame_hist = range_tuner.DrawFrame(*main_pad, page_opt.log_y, page_opt.y_max_sf, page_opt.y_min_sf,
+                                                page_opt.y_min_log);
+        ApplyAxisSetup(*frame_hist, has_ratio);
+
         if(backgrounds.size()) {
             auto stack = std::make_shared<THStack>("", "");
-            for (auto iter = backgrounds.rbegin(); iter != backgrounds.rend(); ++iter){
+            for (auto iter = backgrounds.rbegin(); iter != backgrounds.rend(); ++iter)
                 stack->Add(iter->get());
-            }
-
-            DrawItem(*stack, bkg_opt.draw_opt, has_ratio, first_draw);
+            DrawItem(*stack, bkg_opt.draw_opt);
             plot_items.push_back(stack);
-
-            bkg_sum_hist = CreateSumHistogram(backgrounds);
-            if(bkg_unc_opt) {
-                ApplyHistOptionsEx(*bkg_sum_hist, *bkg_unc_opt);
-                DrawItem(*bkg_sum_hist, bkg_unc_opt->draw_opt, has_ratio, first_draw);
-                plot_items.push_back(bkg_sum_hist);
-            }
+            if(bkg_unc_opt)
+                DrawItem(*bkg_sum, bkg_unc_opt->draw_opt);
         }
 
         for(const auto& signal : signals)
-            DrawItem(*signal, signal_opt.draw_opt, has_ratio, first_draw);
+            DrawItem(*signal, signal_opt.draw_opt);
 
-        std::shared_ptr<TGraphAsymmErrors> data_graph;
-        if(data) {
-            const auto blind_ranges = data_opt.blind ? data->GetBlindRanges() : MultiRange();
-            data_graph = plotting::HistogramToGraph(*data, page_opt.divide_by_bin_width, blind_ranges);
-            ApplyHistOptions(*data_graph, data_opt);
-            DrawItem(*data_graph, data_opt.draw_opt, has_ratio, first_draw);
-            plot_items.push_back(data_graph);
-        }
+        main_pad->RedrawAxis();
+        if(data)
+            DrawItem(*data_graph, data_opt.draw_opt);
 
         if(legend) {
             if(data_graph)
                 legend->AddEntry(data_graph.get(), data->GetLegendTitle().c_str(), data_opt.legend_style.c_str());
             if(bkg_unc_opt)
-                legend->AddEntry(bkg_sum_hist.get(), bkg_unc_opt->legend_title.c_str(),
-                                 bkg_unc_opt->legend_style.c_str());
+                legend->AddEntry(bkg_sum.get(), bkg_unc_opt->legend_title.c_str(), bkg_unc_opt->legend_style.c_str());
             for(const auto& signal : signals)
                 legend->AddEntry(signal.get(), signal->GetLegendTitle().c_str(), signal_opt.legend_style.c_str());
             for(const auto& background : backgrounds)
                 legend->AddEntry(background.get(), background->GetLegendTitle().c_str(), bkg_opt.legend_style.c_str());
         }
 
-        if(ratio_pad && bkg_sum_hist && (bkg_unc_opt || data_graph)) {
+        if(ratio_pad && bkg_sum && (bkg_unc_opt || data_graph)) {
             ratio_pad->cd();
-            bool first_ratio_draw = true;
+            ratio_pad->SetLogx(page_opt.log_x);
+            ratio_pad->SetLogy(page_opt.ratio_log_y);
+
+            HistPtr ratio_unc_hist;
+            GraphPtr ratio_graph;
+            PlotRangeTuner ratio_range_tuner;
             if(bkg_unc_opt) {
-                auto ratio_unc_hist = plotting::CreateNormalizedUncertaintyHistogram(*bkg_sum_hist);
-                DrawRatioItem(*ratio_unc_hist, bkg_unc_opt->draw_opt, first_ratio_draw);
+                ratio_unc_hist = plotting::CreateNormalizedUncertaintyHistogram(*bkg_sum);
                 plot_items.push_back(ratio_unc_hist);
+                ratio_range_tuner.Add(*ratio_unc_hist, false, true);
             }
             if(data_graph) {
-                auto ratio_graph = plotting::CreateRatioGraph(*data_graph, *bkg_sum_hist);
-                DrawRatioItem(*ratio_graph, data_opt.draw_opt, first_ratio_draw);
+                ratio_graph = plotting::CreateRatioGraph(*data_graph, *bkg_sum);
                 plot_items.push_back(ratio_graph);
+                ratio_range_tuner.Add(*ratio_graph, false, true);
             }
+
+            ratio_range_tuner.x_min = range_tuner.x_min;
+            ratio_range_tuner.x_max = range_tuner.x_max;
+            auto ratio_frame_hist = ratio_range_tuner.DrawFrame(*ratio_pad, page_opt.ratio_log_y,
+                                                                page_opt.ratio_y_max_sf, page_opt.ratio_y_min_sf,
+                                                                page_opt.ratio_y_min_log);
+            ApplyRatioAxisSetup(*ratio_frame_hist);
+            if(ratio_unc_hist)
+                DrawItem(*ratio_unc_hist, bkg_unc_opt->draw_opt);
+            if(ratio_graph)
+                DrawItem(*ratio_graph, data_opt.draw_opt);
         }
     }
 
@@ -142,9 +157,15 @@ private:
         page_opt.log_x = hist.UseLogX();
         page_opt.log_y = hist.UseLogY();
         page_opt.y_max_sf = hist.MaxYDrawScaleFactor();
+        page_opt.y_min_sf = hist.MinYDrawScaleFactor();
         page_opt.x_title = hist.GetXTitle();
         page_opt.y_title = hist.GetYTitle();
         page_opt.divide_by_bin_width = hist.NeedToDivideByBinWidth();
+        double y_min;
+        if(hist.TryGetMinY(y_min)) {
+            page_opt.y_min = y_min;
+            page_opt.y_min_log = y_min;
+        }
     }
 
     template<typename Item>
@@ -166,21 +187,30 @@ private:
         hist.SetLegendTitle(opt.legend_title);
     }
 
-
     HistPtr PrepareHistogram(const Hist& original_histogram, const HistOptions& opt, const std::string& legend_title,
-                             const Color& line_color, const Color& fill_color, bool is_data)
+                             const Color& line_color, const Color& fill_color, bool is_data, double scale_factor = 1.)
     {
         auto hist = std::make_shared<Hist>(original_histogram);
-        if(is_data)
-            hist->SetBinErrorOption(TH1::kPoisson);
-        else if (hist->NeedToDivideByBinWidth())
-            DivideByBinWidth(*hist);
         auto opt_copy = opt;
         opt_copy.fill_color = fill_color;
         opt_copy.line_color = line_color;
         opt_copy.legend_title = legend_title;
-        ApplyHistOptionsEx(*hist, opt_copy);
+
         UpdatePageOptions(*hist);
+        if(is_data) {
+            hist->SetBinErrorOption(TH1::kPoisson);
+            const auto blind_ranges = opt.blind ? hist->GetBlindRanges() : MultiRange();
+            data_graph = plotting::HistogramToGraph(*hist, page_opt.divide_by_bin_width, blind_ranges);
+            ApplyHistOptions(*data_graph, opt_copy);
+            range_tuner.Add(*data_graph, false, true);
+        }
+        else {
+            if(page_opt.divide_by_bin_width)
+                DivideByBinWidth(*hist);
+            hist->Scale(scale_factor);
+            range_tuner.Add(*hist, false, true);
+        }
+        ApplyHistOptionsEx(*hist, opt_copy);
         return hist;
     }
 
@@ -195,68 +225,63 @@ private:
         return sum_hist;
     }
 
-    template<typename Item>
-    void DrawItem(Item& item, const std::string& draw_opt, bool has_ratio, bool& first_draw) const
+    void ApplyAxisSetup(TH1& frame_hist, bool has_ratio) const
     {
-        if(first_draw) {
-            item.Draw(draw_opt.c_str());
-            first_draw = false;
-            item.GetYaxis()->SetTitle(page_opt.y_title.c_str());
-            item.GetYaxis()->SetTitleSize(page_opt.axis_title_sizes.y());
-            item.GetYaxis()->SetTitleOffset(page_opt.axis_title_offsets.y());
-            item.GetYaxis()->SetLabelSize(page_opt.axis_label_sizes.y());
-            item.GetYaxis()->SetLabelOffset(page_opt.axis_label_offsets.y());
-            if(has_ratio) {
-                item.GetXaxis()->SetTitle("");
-                item.GetXaxis()->SetTitleSize(0);
-                item.GetXaxis()->SetTitleOffset(0);
-                item.GetXaxis()->SetLabelSize(0);
-                item.GetXaxis()->SetLabelOffset(0);
-            } else {
-                item.GetXaxis()->SetTitle(page_opt.x_title.c_str());
-                item.GetXaxis()->SetTitleSize(page_opt.axis_title_sizes.x());
-                item.GetXaxis()->SetTitleOffset(page_opt.axis_title_offsets.x());
-                item.GetXaxis()->SetLabelSize(page_opt.axis_label_sizes.x());
-                item.GetXaxis()->SetLabelOffset(page_opt.axis_label_offsets.x());
-            }
+        frame_hist.GetYaxis()->SetTitle(page_opt.y_title.c_str());
+        frame_hist.GetYaxis()->SetTitleSize(page_opt.axis_title_sizes.y());
+        frame_hist.GetYaxis()->SetTitleOffset(page_opt.axis_title_offsets.y());
+        frame_hist.GetYaxis()->SetLabelSize(page_opt.axis_label_sizes.y());
+        frame_hist.GetYaxis()->SetLabelOffset(page_opt.axis_label_offsets.y());
+        if(has_ratio) {
+            frame_hist.GetXaxis()->SetTitle("");
+            frame_hist.GetXaxis()->SetTitleSize(0);
+            frame_hist.GetXaxis()->SetTitleOffset(0);
+            frame_hist.GetXaxis()->SetLabelSize(0);
+            frame_hist.GetXaxis()->SetLabelOffset(0);
         } else {
-            const auto opt = "SAME" + draw_opt;
-            item.Draw(opt.c_str());
+            frame_hist.GetXaxis()->SetTitle(page_opt.x_title.c_str());
+            frame_hist.GetXaxis()->SetTitleSize(page_opt.axis_title_sizes.x());
+            frame_hist.GetXaxis()->SetTitleOffset(page_opt.axis_title_offsets.x());
+            frame_hist.GetXaxis()->SetLabelSize(page_opt.axis_label_sizes.x());
+            frame_hist.GetXaxis()->SetLabelOffset(page_opt.axis_label_offsets.x());
         }
     }
 
-    template<typename Item>
-    void DrawRatioItem(Item& item, const std::string& draw_opt, bool& first_draw) const
+    void ApplyRatioAxisSetup(TH1& frame_hist) const
     {
-        item.SetTitle("");
-        if(first_draw) {
-            item.Draw(draw_opt.c_str());
-            first_draw = false;
-            const float sf = page_opt.GetRatioPadSizeSF();
-            item.GetXaxis()->SetTitle(page_opt.x_title.c_str());
-            item.GetXaxis()->SetTitleSize(page_opt.axis_title_sizes.x() * sf);
-            item.GetXaxis()->SetTitleOffset(page_opt.axis_title_offsets.x());
-            item.GetXaxis()->SetLabelSize(page_opt.axis_label_sizes.x() * sf);
-            item.GetXaxis()->SetLabelOffset(page_opt.axis_label_offsets.x());
-            item.GetYaxis()->SetTitle(page_opt.ratio_y_title.c_str());
-            item.GetYaxis()->SetTitleSize(page_opt.ratio_y_title_size * sf);
-            item.GetYaxis()->SetTitleOffset(page_opt.ratio_y_title_offset);
-            item.GetYaxis()->SetLabelSize(page_opt.ratio_y_label_size * sf);
-            item.GetYaxis()->SetLabelOffset(page_opt.ratio_y_label_offset);
-            item.GetYaxis()->SetNdivisions(page_opt.ratio_n_div_y);
-        } else {
-            const auto opt = "SAME" + draw_opt;
-            item.Draw(opt.c_str());
-        }
+        const float sf = page_opt.GetRatioPadSizeSF();
+        frame_hist.GetXaxis()->SetTitle(page_opt.x_title.c_str());
+        frame_hist.GetXaxis()->SetTitleSize(page_opt.axis_title_sizes.x() * sf);
+        frame_hist.GetXaxis()->SetTitleOffset(page_opt.axis_title_offsets.x());
+        frame_hist.GetXaxis()->SetLabelSize(page_opt.axis_label_sizes.x() * sf);
+        frame_hist.GetXaxis()->SetLabelOffset(page_opt.axis_label_offsets.x());
+        frame_hist.GetYaxis()->SetTitle(page_opt.ratio_y_title.c_str());
+        frame_hist.GetYaxis()->SetTitleSize(page_opt.ratio_y_title_size * sf);
+        frame_hist.GetYaxis()->SetTitleOffset(page_opt.ratio_y_title_offset);
+        frame_hist.GetYaxis()->SetLabelSize(page_opt.ratio_y_label_size * sf);
+        frame_hist.GetYaxis()->SetLabelOffset(page_opt.ratio_y_label_offset);
+        frame_hist.GetYaxis()->SetNdivisions(page_opt.ratio_n_div_y);
+        if(page_opt.max_ratio > 0)
+            frame_hist.GetYaxis()->SetRangeUser(std::max(0., 2 - page_opt.max_ratio), page_opt.max_ratio);
+    }
+
+    template<typename Item>
+    void DrawItem(Item& item, const std::string& draw_opt) const
+    {
+        const auto opt = "SAME" + draw_opt;
+        item.Draw(opt.c_str());
     }
 
 private:
     HistPtrVec signals, backgrounds;
-    HistPtr data;
+    HistPtr data, bkg_sum;
+    GraphPtr data_graph;
 
     PageOptions page_opt;
     HistOptions signal_opt, bkg_opt, data_opt;
     boost::optional<HistOptions> bkg_unc_opt;
+
+    PlotRangeTuner range_tuner;
 };
 
 } // namespace analysis

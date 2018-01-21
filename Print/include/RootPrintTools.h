@@ -23,19 +23,13 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 
 namespace root_ext {
 
-template<typename Histogram, typename ValueType=Double_t>
-class HistogramRangeTuner {
+class PlotRangeTuner {
 public:
-    using Range = ::analysis::Range<ValueType>;
-    using OptValue = ::boost::optional<ValueType>;
+    using ValueType = double;
+    using Hist = TH1;
+    using Graph = TGraphAsymmErrors;
 
-    static std::pair<Int_t, Int_t> GetBinRangeX(const Histogram& h, bool consider_overflow_and_underflow)
-    {
-        return consider_overflow_and_underflow
-                ? std::make_pair(0, h.GetNbinsX() + 1) : std::make_pair(1, h.GetNbinsX());
-    }
-
-    static ValueType FindMinLimitX(const Histogram& h)
+    static ValueType FindMinLimitX(const Hist& h, bool /*consired_errors*/)
     {
         for(Int_t i = 1; i <= h.GetNbinsX(); ++i) {
             if(h.GetBinContent(i) != ValueType(0))
@@ -44,7 +38,7 @@ public:
         return std::numeric_limits<ValueType>::max();
     }
 
-    static ValueType FindMaxLimitX(const Histogram& h)
+    static ValueType FindMaxLimitX(const Hist& h, bool /*consired_errors*/)
     {
         for(Int_t i = h.GetNbinsX(); i > 0; --i) {
             if(h.GetBinContent(i) != ValueType(0))
@@ -53,46 +47,156 @@ public:
         return std::numeric_limits<ValueType>::lowest();
     }
 
-    static ValueType FindMinLimitY(const Histogram& h, bool consider_overflow_and_underflow = false)
+    static ValueType FindMinLimitY(const Hist& h, bool consired_errors)
     {
         ValueType min = std::numeric_limits<ValueType>::max();
-        const auto bin_range = GetBinRangeX(h, consider_overflow_and_underflow);
-        for(Int_t i = bin_range.first; i <= bin_range.second; ++i) {
-            if(h.GetBinContent(i) != ValueType(0))
-                min = std::min(min, h.GetBinContent(i));
+        for(int i = 1; i <= h.GetNbinsX(); ++i) {
+            if(h.GetBinContent(i) != ValueType(0)) {
+                ValueType v = h.GetBinContent(i);
+                if(consired_errors)
+                    v -= h.GetBinErrorLow(i);
+                min = std::min(min, v);
+            }
         }
         return min;
     }
 
-    static ValueType FindMaxLimitY(const Histogram& h, bool consider_overflow_and_underflow = false)
+    static ValueType FindMaxLimitY(const Hist& h, bool consired_errors)
     {
         ValueType max = std::numeric_limits<ValueType>::lowest();
-        const auto bin_range = GetBinRangeX(h, consider_overflow_and_underflow);
-        for(Int_t i = bin_range.first; i <= bin_range.second; ++i) {
-            if(h.GetBinContent(i) != ValueType(0))
-                max = std::max(max, h.GetBinContent(i));
+        for(int i = 1; i <= h.GetNbinsX(); ++i) {
+            if(h.GetBinContent(i) != ValueType(0)) {
+                ValueType v = h.GetBinContent(i);
+                if(consired_errors)
+                    v += h.GetBinErrorUp(i);
+                max = std::max(max, v);
+            }
         }
         return max;
     }
 
-    void Add(const Histogram& hist, bool consider_overflow_and_underflow = false)
+    static ValueType FindMinLimitX(const Graph& g, bool consired_errors)
     {
-        x_min = std::min(x_min, FindMinLimitX(hist));
-        x_max = std::max(x_max, FindMinLimitX(hist));
-        x_min = std::min(x_min, FindMinLimitX(hist, consider_overflow_and_underflow));
-        x_min = std::min(x_min, FindMinLimitX(hist, consider_overflow_and_underflow));
+        ValueType min = std::numeric_limits<ValueType>::max();
+        for(int i = 0; i < g.GetN(); ++i) {
+            ValueType v = g.GetX()[i];
+            if(consired_errors)
+                v -= g.GetEXlow()[i];
+            min = std::min(min, v);
+        }
+        return min;
+    }
+
+    static ValueType FindMaxLimitX(const Graph& g, bool consired_errors)
+    {
+        ValueType max = std::numeric_limits<ValueType>::lowest();
+        for(int i = 0; i < g.GetN(); ++i) {
+            ValueType v = g.GetX()[i];
+            if(consired_errors)
+                v += g.GetEXhigh()[i];
+            max = std::max(max, v);
+        }
+        return max;
+    }
+
+    static ValueType FindMinLimitY(const Graph& g, bool consired_errors)
+    {
+        ValueType min = std::numeric_limits<ValueType>::max();
+        for(int i = 0; i < g.GetN(); ++i) {
+            ValueType v = g.GetY()[i];
+            if(consired_errors)
+                v -= g.GetEYlow()[i];
+            min = std::min(min, v);
+        }
+        return min;
+    }
+
+    static ValueType FindMaxLimitY(const Graph& g, bool consired_errors)
+    {
+        ValueType max = std::numeric_limits<ValueType>::lowest();
+        for(int i = 0; i < g.GetN(); ++i) {
+            ValueType v = g.GetY()[i];
+            if(consired_errors)
+                v += g.GetEYhigh()[i];
+            max = std::max(max, v);
+        }
+        return max;
+    }
+
+    template<typename Item>
+    void Add(const Item& item, bool scan_x, bool consider_errors)
+    {
+        if(scan_x) {
+            x_min = std::min(x_min, PlotRangeTuner::FindMinLimitX(item, consider_errors));
+            x_max = std::max(x_max, PlotRangeTuner::FindMaxLimitX(item, consider_errors));
+        } else {
+            UpdateLimitsX(item);
+        }
+
+        y_min = std::min(y_min, PlotRangeTuner::FindMinLimitY(item, consider_errors));
+        y_max = std::max(y_max, PlotRangeTuner::FindMaxLimitY(item, consider_errors));
+    }
+
+    ValueType GetYMinValue(bool log_y, ValueType min_y_sf, ValueType y_min_log) const
+    {
+        const ValueType y_min_value = y_min == std::numeric_limits<ValueType>::max()
+                || y_min == -std::numeric_limits<ValueType>::infinity() ? 0 : y_min;
+        return log_y ? std::max(y_min_value * min_y_sf, y_min_log) : y_min_value * min_y_sf;
+    }
+
+    ValueType GetYMaxValue(ValueType max_y_sf, ValueType y_min_value) const
+    {
+        const ValueType y_max_value = y_max * max_y_sf;
+        return y_max_value <= y_min_value || y_max_value == std::numeric_limits<ValueType>::infinity()
+                ? y_min_value + 1 : y_max_value;
+    }
+
+    ValueType GetXMinValue() const
+    {
+        return x_min == std::numeric_limits<ValueType>::max() || x_min == -std::numeric_limits<ValueType>::infinity()
+                ? 0 : x_min;
+    }
+
+    ValueType GetXMaxValue() const
+    {
+        return x_max == std::numeric_limits<ValueType>::lowest() || x_max == GetXMinValue()
+                || x_max == std::numeric_limits<ValueType>::infinity() ? GetXMinValue() + 1 : x_max;
+    }
+
+    TH1F* DrawFrame(TPad& pad, bool log_y, ValueType max_y_sf, ValueType min_y_sf, ValueType y_min_log) const
+    {
+        const ValueType y_min_value = GetYMinValue(log_y, min_y_sf, y_min_log);
+        return pad.DrawFrame(GetXMinValue(), y_min_value, GetXMaxValue(), GetYMaxValue(max_y_sf, y_min_value));
     }
 
     void SetRangeX(TAxis& x_axis) const
     {
-        x_axis.SetRangeUser(x_min, x_max);
+        x_axis.SetRangeUser(GetXMinValue(), GetXMaxValue());
     }
 
-    void SetRangeY(TAxis& y_axis, bool log_y = false, ValueType max_y_sf = 1, ValueType min_y_sf = 1) const
+    template<typename Item>
+    void SetRangeY(Item& ref_item, bool log_y, ValueType max_y_sf, ValueType min_y_sf, ValueType y_min_log) const
     {
-        const ValueType y_min_value = log_y ? std::min(y_min * min_y_sf, std::numeric_limits<ValueType>::min())
-                                            : y_min * min_y_sf;
-        y_axis.SetRangeUser(y_min_value, y_max * max_y_sf);
+        const ValueType y_min_value = GetYMinValue(log_y, min_y_sf, y_min_log);
+        ref_item.SetMinimum(y_min_value);
+        ref_item.SetMaximum(GetYMaxValue(max_y_sf, y_min_value));
+    }
+
+private:
+    void UpdateLimitsX(const Hist& h)
+    {
+        const ValueType h_x_min = h.GetBinLowEdge(1);
+        const ValueType h_x_max = h.GetBinLowEdge(h.GetNbinsX()) + h.GetBinWidth(h.GetNbinsX());
+        x_min = std::min(x_min, h_x_min);
+        x_max = std::max(x_max, h_x_max);
+    }
+
+    void UpdateLimitsX(const Graph& g)
+    {
+        const ValueType g_x_min = FindMinLimitX(g, true);
+        const ValueType g_x_max = FindMaxLimitX(g, true);
+        x_min = std::min(x_min, g_x_min);
+        x_max = std::max(x_max, g_x_max);
     }
 
 public:
@@ -127,7 +231,7 @@ std::shared_ptr<TCanvas> NewCanvas(const Size<T, 2>& size)
 
 template<typename T>
 void SetMargins(TPad& pad, const MarginBox<T>& box, TPad* ratio_pad = nullptr, float ratio_pad_y_size_sf = 1.f,
-                float ratio_pad_top_margin = 0.f)
+                float main_ratio_margin = .02f)
 {
     pad.SetLeftMargin(box.left());
     pad.SetRightMargin(box.right());
@@ -137,8 +241,8 @@ void SetMargins(TPad& pad, const MarginBox<T>& box, TPad* ratio_pad = nullptr, f
         ratio_pad->SetLeftMargin(box.left());
         ratio_pad->SetRightMargin(box.right());
         ratio_pad->SetBottomMargin(box.bottom() * ratio_pad_y_size_sf);
-        ratio_pad->SetTopMargin(ratio_pad_top_margin);
-        pad.SetBottomMargin(0);
+        ratio_pad->SetTopMargin(main_ratio_margin / 2 * ratio_pad_y_size_sf);
+        pad.SetBottomMargin(main_ratio_margin / 2);
     } else {
         pad.SetBottomMargin(box.bottom());
     }

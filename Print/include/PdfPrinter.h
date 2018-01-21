@@ -8,6 +8,7 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #include <Rtypes.h>
 #include <TError.h>
 #include <TLatex.h>
+#include <TFrame.h>
 
 #include "DrawOptions.h"
 #include "RootPrintTools.h"
@@ -91,64 +92,67 @@ public:
         if(is_last && has_last_page)
             throw exception("Last page has already been printed.");
 
-        canvas->Clear();
         canvas->SetTitle(title.c_str());
         canvas->cd();
 
-        auto main_pad = plotting::NewPad(page_opt.main_pad);
-        std::shared_ptr<TPad> ratio_pad;
-        if(page_opt.draw_ratio) {
+        {
+            auto main_pad = plotting::NewPad(page_opt.main_pad);
+            std::shared_ptr<TPad> ratio_pad;
+            if(page_opt.draw_ratio) {
+                canvas->cd();
+                ratio_pad = plotting::NewPad(page_opt.GetRatioPadBox());
+            }
+            plotting::SetMargins(*main_pad, page_opt.margins, ratio_pad.get(), page_opt.GetRatioPadSizeSF(),
+                                 page_opt.ratio_pad_spacing);
+
+            std::vector<std::shared_ptr<TObject>> plot_items;
+            std::shared_ptr<TLegend> legend;
+            if(legend_opt) {
+                canvas->cd();
+                const auto legend_pos = GetAbsolutePosition(page_opt.legend_opt);
+                legend = std::make_shared<TLegend>(legend_pos.x(), legend_pos.y(),
+                                                   legend_pos.x() + legend_opt->size.x() * inner_size.x(),
+                                                   legend_pos.y() + legend_opt->size.y() * inner_size.y());
+                legend->SetFillColor(legend_opt->fill_color.GetColor_t());
+                legend->SetFillStyle(legend_opt->fill_style);
+                legend->SetBorderSize(legend_opt->border_size);
+                legend->SetTextSize(legend_opt->text_size);
+                legend->SetTextFont(legend_opt->font.code());
+            }
+
+            if(ratio_pad) {
+                ratio_pad->Draw();
+                ratio_pad->SetTitle("");
+            }
+
+            main_pad->Draw();
+            main_pad->cd();
+            main_pad->SetTitle("");
+
+            desc.Draw(main_pad, ratio_pad, legend, plot_items);
             canvas->cd();
-            ratio_pad = plotting::NewPad(page_opt.GetRatioPadBox());
-        }
-        plotting::SetMargins(*main_pad, page_opt.margins, ratio_pad.get(), page_opt.GetRatioPadSizeSF(),
-                             page_opt.ratio_pad_spacing / page_opt.ratio_pad_size);
+            if(legend)
+                legend->Draw();
+            for(const auto& label_opt_entry : label_opts)
+                DrawLabel(label_opt_entry.first, label_opt_entry.second, plot_items);
 
-        std::vector<std::shared_ptr<TObject>> plot_items;
-        std::shared_ptr<TLegend> legend;
-        if(legend_opt) {
-            canvas->cd();
-            const auto legend_pos = GetAbsolutePosition(page_opt.legend_opt);
-            legend = std::make_shared<TLegend>(legend_pos.x(), legend_pos.y(),
-                                               legend_pos.x() + legend_opt->size.x() * inner_size.x(),
-                                               legend_pos.y() + legend_opt->size.y() * inner_size.y());
-            legend->SetFillColor(legend_opt->fill_color.GetColor_t());
-            legend->SetFillStyle(legend_opt->fill_style);
-            legend->SetBorderSize(legend_opt->border_size);
-            legend->SetTextSize(legend_opt->text_size);
-            legend->SetTextFont(legend_opt->font.code());
-        }
+            canvas->Draw();
 
-        if(ratio_pad) {
-            ratio_pad->Draw();
-            ratio_pad->SetTitle("");
+            std::ostringstream print_options, output_name;
+            print_options << "Title:" << title;
+            output_name << output_file_name;
+            if(!has_first_page && !is_last)
+                output_name << "(";
+            else if(has_first_page && is_last)
+                output_name << ")";
+
+            WarningSuppressor ws(kWarning);
+            canvas->Print(output_name.str().c_str(), print_options.str().c_str());
+            has_first_page = true;
+            has_last_page = is_last;
         }
 
-        main_pad->Draw();
-        main_pad->cd();
-        main_pad->SetTitle("");
-
-        desc.Draw(main_pad, ratio_pad, legend, plot_items);
-        canvas->cd();
-        if(legend)
-            legend->Draw();
-        for(const auto& label_opt_entry : label_opts)
-            DrawLabel(label_opt_entry.first, label_opt_entry.second, plot_items);
-
-        canvas->Draw();
-
-        std::ostringstream print_options, output_name;
-        print_options << "Title:" << title;
-        output_name << output_file_name;
-        if(!has_first_page && !is_last)
-            output_name << "(";
-        else if(has_first_page && is_last)
-            output_name << ")";
-
-        WarningSuppressor ws(kWarning);
-        canvas->Print(output_name.str().c_str(), print_options.str().c_str());
-        has_first_page = true;
-        has_last_page = is_last;
+        canvas->Clear();
     }
 
 private:
