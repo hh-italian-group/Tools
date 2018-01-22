@@ -13,7 +13,7 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #include "AnalysisTools/Core/include/AnalysisMath.h"
 #include "AnalysisTools/Core/include/PropertyConfigReader.h"
 #include "AnalysisTools/Print/include/PlotPrimitives.h"
-#include "AnalysisTools/Print/include/RootPrintSource.h"
+#include "AnalysisTools/Print/include/DrawOptions.h"
 #include "AnalysisTools/Print/include/RootPrintTools.h"
 
 namespace analysis {
@@ -134,7 +134,7 @@ public:
     using NameSet = std::set<std::string>;
     using SampleItemNamesMap = std::map<std::string, NameSet>;
     using HistPtr = Source::HistPtr;
-    using DrawOptions = ::root_ext::PageDrawOptions;
+    using DrawOptions = ::root_ext::draw_options::Page;
 
     ShapeSync(const Arguments& _args) :
         args(_args)
@@ -262,13 +262,13 @@ private:
         auto input = inputs.begin();
         auto hist = input->histograms.at(dir_name).at(hist_name);
         std::map<std::string, PhysicalValue> integrals;
-        root_ext::HistogramRangeTuner rangeTuner;
+        root_ext::PlotRangeTuner rangeTuner;
 
         hist->SetTitle(title.c_str());
         hist->GetXaxis()->SetTitle(draw_options->x_title.c_str());
         hist->GetYaxis()->SetTitle(draw_options->y_title.c_str());
-        hist->GetXaxis()->SetTitleOffset(draw_options->axes_title_offsets.x());
-        hist->GetYaxis()->SetTitleOffset(draw_options->axes_title_offsets.y());
+        hist->GetXaxis()->SetTitleOffset(draw_options->axis_title_offsets.x());
+        hist->GetYaxis()->SetTitleOffset(draw_options->axis_title_offsets.y());
         hist->SetStats(0);
 
         for(; input != inputs.end(); ++input) {
@@ -279,7 +279,7 @@ private:
             if(draw_options->divide_by_bin_width)
                 root_ext::DivideByBinWidth(*hist);
             hist->SetMarkerStyle(kDot);
-            rangeTuner.Add(*hist);
+            rangeTuner.Add(*hist, false, true);
         }
 
         input = inputs.begin();
@@ -296,9 +296,9 @@ private:
         ratio_plot->SetH2DrawOpt("");
         root_ext::plotting::SetMargins(*ratio_plot, draw_options->margins);
         ratio_plot->Draw();
-        ratio_plot->GetLowerRefYaxis()->SetLabelSize(draw_options->y_ratio_label_size);
+        ratio_plot->GetLowerRefYaxis()->SetLabelSize(draw_options->ratio_y_label_size);
         rangeTuner.SetRangeY(*ratio_plot->GetUpperRefYaxis(), draw_options->log_y, draw_options->y_max_sf,
-                             draw_options->y_min_sf);
+                             draw_options->y_min_sf, draw_options->y_min_log);
         ratio_plot->GetUpperPad()->SetLogy(draw_options->log_y);
         if(draw_options->max_ratio > 0)
             ratio_plot->GetLowerRefYaxis()->SetRangeUser(std::max(0., 2 - draw_options->max_ratio),

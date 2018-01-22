@@ -35,7 +35,7 @@ set(CXX_WARNING_FLAGS "-Weverything -Wno-missing-prototypes -Wno-unused-member-f
                        -Wno-exit-time-destructors -Wno-newline-eof -Wno-c++98-compat-pedantic \
                        -Wno-c++98-compat -Wno-disabled-macro-expansion -Wno-system-headers -Wno-unused-macros \
                        -Wno-shadow -Wno-unknown-pragmas -Wno-format-nonliteral -Wno-double-promotion -Wno-float-equal \
-                       -Wno-padded")
+                       -Wno-padded -Wno-missing-braces")
 # -ftime-report
 set(CXX_COMMON_FLAGS "-std=c++14 -pedantic ${CXX_WARNING_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} -O3")

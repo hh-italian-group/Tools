@@ -174,8 +174,14 @@ public:
         x_axis.SetRangeUser(GetXMinValue(), GetXMaxValue());
     }
 
+    void SetRangeY(TAxis& y_axis, bool log_y, ValueType max_y_sf, ValueType min_y_sf, ValueType y_min_log) const
+    {
+        const ValueType y_min_value = GetYMinValue(log_y, min_y_sf, y_min_log);
+        y_axis.SetRangeUser(y_min_value, GetYMaxValue(max_y_sf, y_min_value));
+    }
+
     template<typename Item>
-    void SetRangeY(Item& ref_item, bool log_y, ValueType max_y_sf, ValueType min_y_sf, ValueType y_min_log) const
+    void SetItemRangeY(Item& ref_item, bool log_y, ValueType max_y_sf, ValueType min_y_sf, ValueType y_min_log) const
     {
         const ValueType y_min_value = GetYMinValue(log_y, min_y_sf, y_min_log);
         ref_item.SetMinimum(y_min_value);

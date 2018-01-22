@@ -375,13 +375,13 @@ private:
             if(n == 0 || (n == 1 && max != min) || (n != 1 && max == min))
                 throw exception("Invalid number of grid points.");
             if(max != min)
-                step = (max - min) / (n - 1);
+                step = (max - min) / T(n - 1);
         } else if(mode == PrintMode::NBins) {
             size_t n = ::analysis::Parse<size_t>(values.at(2));
             if((n == 0 && max != min) || (n != 0 && max == min))
                 throw exception("Invalid number of bins.");
             if(max != min)
-                step = (max - min) / n;
+                step = (max - min) / T(n);
         } else {
             throw exception("Unsupported RangeWithStep::PrintMode = %1%.") % static_cast<size_t>(mode);
         }
