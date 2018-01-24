@@ -212,12 +212,14 @@ struct MassWindowParameters {
     double peak_bb{0.0};
     double resolution_bb{0.0};
 
-    constexpr double boosted_m_tautau_min = 80;
-    constexpr double boosted_m_tautau_max = 152;
-    constexpr double boosted_m_bb_min = 90;
-    constexpr double boosted_m_bb_max = 160;
+    double boosted_m_tautau_min = 80;
+    double boosted_m_tautau_max = 152;
+    double boosted_m_bb_min = 90;
+    double boosted_m_bb_max = 160;
 
-    inline bool IsInsideMassWindow(double mass_tautau, double mass_bb, bool is_boosted = false)
+    inline bool IsInsideMassWindow(double mass_tautau, double mass_bb, double peak_tautau,
+                                   double resolution_tautau, double peak_bb, double resolution_bb,
+                                   bool is_boosted = false)
     {
         if(is_boosted)
             return mass_tautau > boosted_m_tautau_min && mass_tautau < boosted_m_tautau_max
