@@ -205,34 +205,36 @@ double Calculate_MX(const LVector1& lepton1, const LVector2& lepton2, const LVec
     return mass_4 - mass_ll - mass_bb + shift;
 }
 
-struct MassWindowParameters {
-
-    double peak_tautau{0.0};
-    double resolution_tautau{0.0};
-    double peak_bb{0.0};
-    double resolution_bb{0.0};
-
-    double boosted_m_tautau_min = 80;
-    double boosted_m_tautau_max = 152;
-    double boosted_m_bb_min = 90;
-    double boosted_m_bb_max = 160;
-
-    inline bool IsInsideMassWindow(double mass_tautau, double mass_bb, double peak_tautau,
-                                   double resolution_tautau, double peak_bb, double resolution_bb,
-                                   bool is_boosted = false)
-    {
-        if(is_boosted)
-            return mass_tautau > boosted_m_tautau_min && mass_tautau < boosted_m_tautau_max
-                && mass_bb > boosted_m_bb_min && mass_bb < boosted_m_bb_max;
-        const double ellipse_cut = std::pow(mass_tautau-peak_tautau, 2)/std::pow(resolution_tautau, 2)
-                                 + std::pow(mass_bb-peak_bb, 2)/std::pow(resolution_bb, 2);
-        return ellipse_cut<1;
-    }
-
-};
-
 }
 
+
+struct EllipseParameters {
+
+    double x0{0.0};
+    double r_x{0.0};
+    double y0{0.0};
+    double r_y{0.0};
+
+    inline bool IsInside(double x, double y) const
+    {
+        const double ellipse_cut = std::pow(x-x0, 2)/std::pow(r_x, 2)
+                                 + std::pow(y-y0, 2)/std::pow(r_y, 2);
+        return ellipse_cut<1;
+    }
+};
+
+
+std::ostream& operator<<(std::ostream& os, const EllipseParameters& ellipseParams)
+{
+    os << ellipseParams.x0 << ellipseParams.r_x << ellipseParams.y0 << ellipseParams.r_y;
+    return os;
+}
+
+std::istream& operator>>(std::istream& is, EllipseParameters& ellipseParams)
+{
+    is >> ellipseParams.x0 >> ellipseParams.r_x >> ellipseParams.y0 >> ellipseParams.r_y;
+    return is;
+}
 
 inline PhysicalValue Integral(const TH1& histogram, bool include_overflows = true)
 {
