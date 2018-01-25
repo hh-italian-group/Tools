@@ -215,7 +215,7 @@ struct EllipseParameters {
     double y0{0.0};
     double r_y{0.0};
 
-    inline bool IsInside(double x, double y) const
+    bool IsInside(double x, double y) const
     {
         const double ellipse_cut = std::pow(x-x0, 2)/std::pow(r_x, 2)
                                  + std::pow(y-y0, 2)/std::pow(r_y, 2);
@@ -224,13 +224,13 @@ struct EllipseParameters {
 };
 
 
-std::ostream& operator<<(std::ostream& os, const EllipseParameters& ellipseParams)
+inline std::ostream& operator<<(std::ostream& os, const EllipseParameters& ellipseParams)
 {
     os << ellipseParams.x0 << ellipseParams.r_x << ellipseParams.y0 << ellipseParams.r_y;
     return os;
 }
 
-std::istream& operator>>(std::istream& is, EllipseParameters& ellipseParams)
+inline std::istream& operator>>(std::istream& is, EllipseParameters& ellipseParams)
 {
     is >> ellipseParams.x0 >> ellipseParams.r_x >> ellipseParams.y0 >> ellipseParams.r_y;
     return is;
