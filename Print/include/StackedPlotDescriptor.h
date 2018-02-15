@@ -68,6 +68,14 @@ public:
         range_tuner.Add(*bkg_sum, false, true);
     }
 
+    void AddTotalBkgUnc(const Hist& hist)
+    {
+        bkg_sum = std::make_shared<Hist>(*hist);
+        if(bkg_unc_opt)
+            ApplyHistOptionsEx(*bkg_sum, *bkg_unc_opt);
+        range_tuner.Add(*bkg_sum, false, true);
+    }
+
     void AddDataHistogram(const Hist& original_hist, const std::string& legend_title)
     {
         if(data)
