@@ -68,9 +68,9 @@ public:
         range_tuner.Add(*bkg_sum, false, true);
     }
 
-    void AddTotalBkgUnc(const Hist& hist)
+    void SetTotalBkg(const Hist& hist)
     {
-        bkg_sum = std::make_shared<Hist>(*hist);
+        bkg_sum = std::make_shared<Hist>(hist);
         if(bkg_unc_opt)
             ApplyHistOptionsEx(*bkg_sum, *bkg_unc_opt);
         range_tuner.Add(*bkg_sum, false, true);
