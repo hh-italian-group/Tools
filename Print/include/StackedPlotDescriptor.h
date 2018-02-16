@@ -73,6 +73,8 @@ public:
         bkg_sum = std::make_shared<Hist>(hist);
         if(bkg_unc_opt)
             ApplyHistOptionsEx(*bkg_sum, *bkg_unc_opt);
+        if(page_opt.divide_by_bin_width)
+            plotting::DivideByBinWidth(*bkg_sum);
         range_tuner.Add(*bkg_sum, false, true);
     }
 
