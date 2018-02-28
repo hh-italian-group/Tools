@@ -149,6 +149,14 @@ public:
         return p_list;
     }
 
+    template<typename T = std::string>
+    std::vector<T> GetList(std::string name, bool allow_duplicates,
+                           const std::string& separators = " \t")
+    {
+        std::vector<T> list = analysis::SplitValueList(name,allow_duplicates,separators);
+        return list;
+    }
+
 private:
     std::map<std::string, std::string> properties;
 };
