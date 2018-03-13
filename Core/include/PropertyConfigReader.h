@@ -155,8 +155,8 @@ public:
     {
         std::vector<T> list;
         auto split_list = SplitValueList(Get<std::string>(name), allow_duplicates, separators);
-        for (size_t n = 0; n < split_list.size(); ++n){
-            const T element = analysis::Parse<T>(split_list.at(n));
+        for (const auto& split_element : split_list){
+            const T element = analysis::Parse<T>(split_element);
             list.push_back(element);
         }
         return list;
