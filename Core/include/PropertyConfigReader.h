@@ -154,7 +154,7 @@ public:
                            const std::string& separators = " \t") const
     {
         std::vector<T> list;
-        std::vector<std::string> split_list= analysis::SplitValueList(name,allow_duplicates,separators);
+        auto split_list = SplitValueList(Get<std::string>(name), allow_duplicates, separators);
         for (size_t n = 0; n < split_list.size(); ++n){
             const T element = analysis::Parse<T>(split_list.at(n));
             list.push_back(element);
