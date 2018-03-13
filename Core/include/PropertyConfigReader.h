@@ -150,10 +150,15 @@ public:
     }
 
     template<typename T = std::string>
-    std::vector<T> GetList(std::string name, bool allow_duplicates,
+    std::vector<T> GetList(const std::string& name, bool allow_duplicates,
                            const std::string& separators = " \t") const
     {
-        std::vector<T> list = analysis::SplitValueList(name,allow_duplicates,separators);
+        std::vector<T> list;
+        std::vector<std::string> split_list= analysis::SplitValueList(name,allow_duplicates,separators);
+        for (size_t n = 0; n < split_list.size(); ++n){
+            const T element = analysis::Parse<T>(split_list.at(n));
+            list.push_back(element);
+        }
         return list;
     }
 
