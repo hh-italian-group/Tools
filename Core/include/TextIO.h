@@ -156,10 +156,11 @@ struct StVariable {
     static constexpr int max_precision = -std::numeric_limits<ValueType>::digits10;
     static constexpr int number_of_significant_digits_in_error = 2;
 
-    const ValueType value, error_up, error_low;
+        ValueType value, error_up, error_low;
 
-    StVariable(double _value, double _error_up, double _error_low = std::numeric_limits<double>::quiet_NaN()) :
-        value(_value), error_up(_error_up), error_low(_error_low) {}
+        StVariable() : value(0), error_up(0), error_low(0) {}
+        StVariable(double _value, double _error_up, double _error_low = std::numeric_limits<double>::quiet_NaN()) :
+            value(_value), error_up(_error_up), error_low(_error_low) {}
 
     int precision_up() const
     {
