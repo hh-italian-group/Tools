@@ -4,7 +4,6 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #pragma once
 
 #include "exception.h"
-#include "PhysicalValue.h"
 #include <unordered_set>
 #include <boost/algorithm/string.hpp>
 
@@ -197,10 +196,10 @@ struct StVariable {
             ss << value_rounded<< "^{+" << error_up_rounded << "}_{-" << error_low_rounded << "}";
         else if(std::isnan(error_low)) {
             ss << value_rounded << " \\pm ";
-        if(error_up == 0)
-            ss << "0";
-        else
-            ss << error_up_rounded;
+            if(error_up == 0)
+                ss << "0";
+            else
+                ss << error_up_rounded;
        }
 
        return ss.str();
