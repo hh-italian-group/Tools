@@ -18,8 +18,8 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 namespace root_ext {
 
 inline std::shared_ptr<TFile> CreateRootFile(const std::string& file_name,
-                                             ROOT::ECompressionAlgorithm compression = ROOT::kZLIB,
-                                             int compression_level = 9)
+                                             ROOT::ECompressionAlgorithm compression = ROOT::kLZ4,
+                                             int compression_level = 4)
 {
     std::shared_ptr<TFile> file(TFile::Open(file_name.c_str(), "RECREATE", "", compression * 100 + compression_level));
     if(!file || file->IsZombie())
