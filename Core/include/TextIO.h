@@ -93,7 +93,10 @@ inline std::string RemoveFileExtension(const std::string& file_name)
 inline std::string GetFileNameWithoutPath(const std::string& file_name)
 {
     const size_t lastindex = file_name.find_last_of("/");
-    return file_name.substr(lastindex+1);
+    if(lastindex == std::string::npos)
+        return file_name;
+    else
+        return file_name.substr(lastindex+1);
 }
 
 inline std::vector<std::string> SplitValueList(std::string values_str, bool allow_duplicates = true,
