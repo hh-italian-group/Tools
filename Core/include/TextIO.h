@@ -7,7 +7,6 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #include <iomanip>
 #include <unordered_set>
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/convenience.hpp>
 namespace analysis {
 
