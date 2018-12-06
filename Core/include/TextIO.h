@@ -7,7 +7,8 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #include <iomanip>
 #include <unordered_set>
 #include <boost/algorithm/string.hpp>
-
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/convenience.hpp>
 namespace analysis {
 
 namespace detail {
@@ -84,6 +85,18 @@ std::string CollectionToString(const Collection& col, const std::string& separat
         ss << separator << *iter;
     return ss.str();
 }
+
+inline std::string RemoveFileExtension(const std::string& file_name)
+{
+    return boost::filesystem::change_extension(file_name, "").string();
+}
+
+inline std::string GetFileNameWithoutPath(const std::string& file_name)
+{
+    const size_t lastindex = file_name.find_last_of("/");
+    return file_name.substr(lastindex+1);
+}
+
 
 inline std::vector<std::string> SplitValueList(std::string values_str, bool allow_duplicates = true,
                                                const std::string& separators = " \t",
