@@ -96,7 +96,6 @@ inline std::string GetFileNameWithoutPath(const std::string& file_name)
     return file_name.substr(lastindex+1);
 }
 
-
 inline std::vector<std::string> SplitValueList(std::string values_str, bool allow_duplicates = true,
                                                const std::string& separators = " \t",
                                                bool enable_token_compress = true)
