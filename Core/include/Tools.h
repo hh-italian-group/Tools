@@ -8,8 +8,6 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #include <algorithm>
 #include <initializer_list>
 #include <sstream>
-#include <regex>
-#include <iostream>
 #include "TextIO.h"
 
 namespace analysis {
@@ -118,7 +116,7 @@ inline std::string FullPath(std::initializer_list<std::string> paths)
 }
 
 uint32_t hash(const std::string& str);
-std::vector<std::string> FindFiles(const std::string& path, const std::string& input);
+std::vector<std::string> FindFiles(const std::string& path, const std::string& file_name_pattern);
 
 } // namespace tools
 } // namespace analysis
