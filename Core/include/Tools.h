@@ -8,7 +8,9 @@ This file is part of https://github.com/hh-italian-group/AnalysisTools. */
 #include <algorithm>
 #include <initializer_list>
 #include <sstream>
-#include <boost/crc.hpp>
+#include <regex>
+#include <iostream>
+#include "TextIO.h"
 
 namespace analysis {
 
@@ -102,13 +104,6 @@ Set collect_map_values(const Map& map)
     return result;
 }
 
-inline uint32_t hash(const std::string& str)
-{
-    boost::crc_32_type crc;
-    crc.process_bytes(str.data(), str.size());
-    return crc.checksum();
-}
-
 inline std::string FullPath(std::initializer_list<std::string> paths)
 {
     if(!paths.size())
@@ -121,6 +116,9 @@ inline std::string FullPath(std::initializer_list<std::string> paths)
         full_path << "/" << *iter;
     return full_path.str();
 }
+
+uint32_t hash(const std::string& str);
+std::vector<std::string> FindFiles(const std::string& path, const std::string& input);
 
 } // namespace tools
 } // namespace analysis
