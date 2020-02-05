@@ -158,14 +158,8 @@ double Calculate_dR_boosted(const LVector1& particle_1, const LVector2& particle
 template<typename LVector>
 double Calculate_min_dR_lj(const LVector& t1, const LVector& t2, const LVector& b1, const LVector& b2)
 {
-    const std::vector<LVector> taus;
-    taus.push_back(t1);
-    taus.push_back(t2);
-
-    const std::vector<LVector> jets;
-    jets.push_back(b1);
-    jets.push_back(b2);
-
+    const std::vector<LVector> taus = {t1, t2};
+    const std::vector<LVector> jets = {b1, b2};
     std::vector<double> dR;
 
     for(size_t jet_index = 0; jet_index < taus.size(); ++jet_index) {
