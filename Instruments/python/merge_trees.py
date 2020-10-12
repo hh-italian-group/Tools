@@ -14,8 +14,8 @@ args = parser.parse_args()
 if args.tree_out is None:
 	args.tree_out = args.tree
 branches={}
-trees=[]
 n=0 
+trees=[]
 for file in (args.files):  
 	tree= uproot.open(file)[args.tree]
 	trees.append(tree)
