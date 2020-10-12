@@ -17,8 +17,8 @@ branches={}
 trees=[]
 n=0 
 for file in (args.files):  
-	  	tree= uproot.open(file)[args.tree]
-		trees.append(tree)
+	tree= uproot.open(file)[args.tree]
+	trees.append(tree)
 n_entries=trees[0].numentries
 for tree in trees:
 	if tree.numentries!= n_entries:
@@ -35,10 +35,3 @@ with uproot.recreate(args.out) as f:
 			f[args.tree_out] = uproot.newtree(branches_dict) 
 		f[args.tree_out].extend(branches)
 		n+=args.chunk_size
-
-
-
-	
-		
-
-
