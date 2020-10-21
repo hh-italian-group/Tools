@@ -11,12 +11,8 @@ parser.add_argument('--tree-out', required=False, type=str, default="merged_tree
 parser.add_argument('--chunk-size', required=False, type=int, default=1000000, help="Number of entries per iteration")
 parser.add_argument('--compression_type', required=False, default='LZMA')
 parser.add_argument('--compression_level', required=False, type=int, default=9)
-
 args = parser.parse_args() 
 
-algo = {'ZLIB': uproot.ZLIB(args.compression_level),
-        'LZMA': uproot.LZMA(args.compression_level),
-        'LZ4': uproot.LZ4(args.compression_level)}
 if args.tree_out is None:
     args.tree_out = args.tree
 branches={}
@@ -28,7 +24,8 @@ for file in (args.files):
 n_entries=trees[0].numentries
 for tree in trees:
     if tree.numentries== n_entries:
-        with uproot.recreate(args.out, compression=algo[args.compression_type]) as f: 
+        with uproot.recreate(args.out) as f: 
+            f.compression = getattr(uproot.write.compress, args.compression_type)(args.compression_level)
             while n < n_entries:
                 entrystart = n
                 entrystop = min(n_entries, n + args.chunk_size)
