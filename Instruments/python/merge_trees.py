@@ -29,7 +29,7 @@ with uproot.recreate(args.out) as f:
             entrystart = n
             entrystop = min(n_entries, n + args.chunk_size)
             branches.update(tree.arrays(entrystart=entrystart, entrystop=entrystop))
-            while n < 120: #n_entries:
+            while n < n_entries:
                 branches_dict = {k:branches[k].dtype for k in branches.keys()}   
                 if n==0:
                     f[args.tree_out] = uproot.newtree(branches_dict)
