@@ -27,7 +27,6 @@ for tree in trees:
         with uproot.recreate(args.out) as f: 
             f.compression = getattr(uproot.write.compress, args.compression_type)(args.compression_level)
             while n < n_entries:
-                print(n)
                 entrystart = n
                 entrystop = min(n_entries, n + args.chunk_size)
                 for tree in trees:
@@ -37,8 +36,6 @@ for tree in trees:
                 if n==0:
                     f[args.tree_out] = uproot.newtree(branches_dict)
                 f[args.tree_out].extend(branches) 
-                #print(branch.basket_numentries(i) for i in range(branch.numbaskets))
-                #print(n)
                 n+=args.chunk_size
     else:
         print("Error: all trees must have the same number of entries!")  
