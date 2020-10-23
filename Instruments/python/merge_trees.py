@@ -31,7 +31,6 @@ for tree in trees:
                 entrystop = min(n_entries, n + args.chunk_size)
                 for tree in trees:
                     branches.update(tree.arrays(entrystart=entrystart, entrystop=entrystop)) 
-                    #print(branches) 
                 branches_dict = {k:branches[k].dtype for k in branches.keys()}   
                 if n==0:
                     f[args.tree_out] = uproot.newtree(branches_dict)
