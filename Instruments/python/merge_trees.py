@@ -18,25 +18,22 @@ if args.tree_out is None:
 branches={}
 n=0 
 trees=[]
-for file in (args.files):  
+n_entries=uproot.open((args.files)[0])[args.tree].numentries
+for file in (args.files):   
     tree= uproot.open(file)[args.tree]
-    trees.append(tree)
-n_entries=trees[0].numentries
-with uproot.recreate(args.out) as f: 
-    f.compression = getattr(uproot.write.compress, args.compression_type)(args.compression_level)              
-    for tree in trees:
-        if tree.numentries== n_entries:
-            entrystart = n
-            entrystop = min(n_entries, n + args.chunk_size)
-            branches.update(tree.arrays(entrystart=entrystart, entrystop=entrystop))
-            while n < n_entries:
-                branches_dict = {k:branches[k].dtype for k in branches.keys()}   
-                if n==0:
-                    f[args.tree_out] = uproot.newtree(branches_dict)
-                f[args.tree_out].extend(branches) 
-                print(n)
-                n+=args.chunk_size
-        else:
-            print("Error: all trees must have the same number of entries!")  
-   
-    
+    if tree.numentries==n_entries:
+        trees.append(tree)
+    else:
+        raise RuntimeError('all trees must have the same number of entries!') 
+with uproot.recreate(args.out) as f:
+    f.compression = getattr(uproot.write.compress, args.compression_type)(args.compression_level)   
+    while n < n_entries:
+        entrystart = n
+        entrystop = min(n_entries, n + args.chunk_size)
+        for tree in trees:
+            branches.update(tree.arrays(entrystart=entrystart, entrystop=entrystop))   
+        if n==0:
+            branches_dict = {k:branches[k].dtype for k in branches.keys()} 
+            f[args.tree_out] = uproot.newtree(branches_dict) 
+        f[args.tree_out].extend(branches)
+        n+=args.chunk_size       
